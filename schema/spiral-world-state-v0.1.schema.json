@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spiraletech.dev/schema/spiral-world-state-v0.1.schema.json",
+  "title": "Spiral World State v0.1",
+  "type": "object",
+  "required": ["schema_version", "world_id", "epoch", "tick", "coordinate_frame", "authority_assignments", "spatial_graph", "entities"],
+  "properties": {
+    "schema_version": { "const": "0.1" },
+    "world_id": { "$ref": "#/$defs/stableId" },
+    "epoch": { "type": "integer", "minimum": 0 },
+    "tick": { "type": "integer", "minimum": 0 },
+    "world_time_microseconds": { "type": "integer" },
+    "seed": { "type": "integer", "minimum": 0 },
+    "coordinate_frame": { "$ref": "#/$defs/coordinateFrame" },
+    "authority_assignments": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/authorityAssignment" }
+    },
+    "spatial_graph": { "$ref": "#/$defs/spatialGraph" },
+    "entities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entityRecord" }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "coordinateFrame": {
+      "type": "object",
+      "required": ["linear_unit", "handedness", "up_axis", "origin_id", "rebase_generation"],
+      "properties": {
+        "linear_unit": { "type": "string", "minLength": 1 },
+        "handedness": { "enum": ["left", "right"] },
+        "up_axis": { "enum": ["+x", "+y", "+z", "-x", "-y", "-z"] },
+        "origin_id": { "$ref": "#/$defs/stableId" },
+        "rebase_generation": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "componentRecord": {
+      "type": "object",
+      "required": ["id", "type", "schema_version", "revision", "payload"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "type": { "type": "string", "minLength": 1 },
+        "schema_version": { "type": "string", "minLength": 1 },
+        "revision": { "type": "integer", "minimum": 0 },
+        "payload": {}
+      },
+      "additionalProperties": true
+    },
+    "entityRecord": {
+      "type": "object",
+      "required": ["id", "kind", "lifecycle", "components"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "kind": { "type": "string", "minLength": 1 },
+        "lifecycle": { "enum": ["declared", "active", "dormant", "destroyed"] },
+        "components": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentRecord" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "authorityAssignment": {
+      "type": "object",
+      "required": ["scope_kind", "domain", "authority_id", "effective_tick"],
+      "properties": {
+        "scope_kind": { "enum": ["world_domain", "entity", "entity_component", "spatial_node"] },
+        "domain": { "type": "string", "minLength": 1 },
+        "scope_id": { "type": ["string", "null"] },
+        "component_type": { "type": ["string", "null"] },
+        "authority_id": { "$ref": "#/$defs/stableId" },
+        "effective_tick": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "spatialNode": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "kind": { "enum": ["world", "region", "district", "parcel", "structure", "room", "volume", "anchor", "custom"] },
+        "custom_kind": { "type": ["string", "null"] },
+        "parent": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "spatialGraph": {
+      "type": "object",
+      "required": ["nodes"],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/spatialNode" }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}
