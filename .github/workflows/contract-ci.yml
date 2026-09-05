@@ -1,0 +1,20 @@
+name: World Contract CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - gpt/world-state-contract-v0.1
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DSPIRAL_HOME_BUILD_TESTS=ON
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
