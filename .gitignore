@@ -1,0 +1,10 @@
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+CTestTestfile.cmake
+Testing/
+*.user
+*.suo
+.vscode/
+.idea/
