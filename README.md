@@ -61,6 +61,10 @@ L16 adds deterministic canonical item instances and inventory ownership without 
 
 L17 adds canonical progression facts without moving action execution, planning or presentation into HOME. `ProgressionLedger` owns per-player keyed skills with bounded levels, deterministic experience rollover and monotonic skill revisions; stable `TaskId`/`QuestId` identity; player-owned tasks with bounded progress and terminal status rules; quests with deterministic task membership and completion validation; and ordered per-player/global snapshots. HAKUI performs actions, GUFF may reason about goals, and HOME only validates and persists the resulting progression truth.
 
+## L18 — Subclass / Theorism / Aura
+
+L18 adds deterministic canonical identity and metaphysical-state facts without letting HOME decide how those facts look, feel, sound or influence behavior. `TheorismLedger` stores one keyed subclass per player with bounded rank, one keyed theorism with bounded conviction, and one aura signature with bounded intensity and signed charge. Each channel owns monotonic per-player revisions, deterministic ordered snapshots, explicit clear operations and typed validation failures. HOME records the canonical facts only; HAKUI, INOKUI, ENTROKOI, XENON and GUFF remain responsible for embodiment, manifestation, perception, signal treatment and reasoning.
+
 ## Build and test
 
 ```sh
@@ -71,4 +75,4 @@ ctest --test-dir build -C Release --output-on-failure
 
 ## Roadmap
 
-L1 Foundation ✅ → L2 Entity Registry ✅ → L3 World Revision + Deltas ✅ → L4 Topology/Zones ✅ → L5 Transactions/Validation ✅ → L6 Snapshot/Save/Restore ✅ → L7 World Clock ✅ → L8 Calendar/Seasons ✅ → L9 Temporal Domains ✅ → L10 Events/Festivals/Holidays ✅ → L11 Weather/Climate ✅ → L12 World Affect/Theme Anchors ✅ → L13 Player Life State ✅ → L14 Needs/Mood/Autonomy ✅ → L15 Relationships/Households ✅ → L16 Items/Inventory ✅ → L17 Skills/Tasks/Quests ✅ → L18 Subclass Theorism/Aura → L19 HAKUI Adapter → L20 INOKUI Adapter → L21 ENTROKOI Adapter → L22 XENON Adapter → L23 GUFF HOME Cartridge → L24 Mission Bay World Package → L25 HOME v0.1 Vertical Slice.
+L1 Foundation ✅ → L2 Entity Registry ✅ → L3 World Revision + Deltas ✅ → L4 Topology/Zones ✅ → L5 Transactions/Validation ✅ → L6 Snapshot/Save/Restore ✅ → L7 World Clock ✅ → L8 Calendar/Seasons ✅ → L9 Temporal Domains ✅ → L10 Events/Festivals/Holidays ✅ → L11 Weather/Climate ✅ → L12 World Affect/Theme Anchors ✅ → L13 Player Life State ✅ → L14 Needs/Mood/Autonomy ✅ → L15 Relationships/Households ✅ → L16 Items/Inventory ✅ → L17 Skills/Tasks/Quests ✅ → L18 Subclass Theorism/Aura ✅ → L19 HAKUI Adapter → L20 INOKUI Adapter → L21 ENTROKOI Adapter → L22 XENON Adapter → L23 GUFF HOME Cartridge → L24 Mission Bay World Package → L25 HOME v0.1 Vertical Slice.
