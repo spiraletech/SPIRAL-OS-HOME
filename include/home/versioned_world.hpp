@@ -2,6 +2,7 @@
 
 #include "home/entity_registry.hpp"
 #include "home/topology.hpp"
+#include "home/transaction.hpp"
 #include "home/world_delta.hpp"
 
 #include <cstddef>
@@ -24,7 +25,6 @@ public:
     Result<void> restore_entity(EntityRecord record);
     Result<EntityRecord> remove_entity(EntityId id);
     Result<void> update_transform(EntityId id, Transform transform);
-
     Result<ZoneId> create_zone(ZoneCreateInfo info);
     Result<void> restore_zone(ZoneRecord zone);
     Result<void> set_zone_parent(ZoneId child, std::optional<ZoneId> parent);
@@ -32,6 +32,7 @@ public:
     Result<void> place_entity(EntityId entity, ZoneId zone);
     Result<void> clear_entity_zone(EntityId entity);
 
+    Result<TransactionReceipt> execute(const WorldTransaction& transaction);
     [[nodiscard]] Result<std::vector<WorldDelta>> deltas_since(WorldRevision revision) const;
 
 private:
