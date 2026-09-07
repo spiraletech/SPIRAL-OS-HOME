@@ -10,6 +10,7 @@ option(HOME_BUILD_TESTS "Build HOME tests" ON)
 add_library(home_core
     src/world_types.cpp
     src/entity_registry.cpp
+    src/topology.cpp
     src/versioned_world.cpp
 )
 add_library(HOME::Core ALIAS home_core)
@@ -42,4 +43,8 @@ if(HOME_BUILD_TESTS)
     add_executable(home_l3_tests tests/l3_world_delta_tests.cpp)
     target_link_libraries(home_l3_tests PRIVATE HOME::Core)
     add_test(NAME home.l3.world_deltas COMMAND home_l3_tests)
+
+    add_executable(home_l4_tests tests/l4_topology_tests.cpp)
+    target_link_libraries(home_l4_tests PRIVATE HOME::Core)
+    add_test(NAME home.l4.topology COMMAND home_l4_tests)
 endif()
