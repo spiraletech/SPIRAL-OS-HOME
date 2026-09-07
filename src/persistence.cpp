@@ -9,6 +9,9 @@ WorldSnapshot VersionedWorld::snapshot() const {
     WorldSnapshot out{};
     out.world = world();
     out.revision = revision_;
+    out.clock_config = clock_.config();
+    out.world_time = clock_.now();
+    out.clock_remainder = clock_.remainder();
     out.entities = registry_.snapshot();
     out.zones = topology_.snapshot_zones();
     out.connections = topology_.snapshot_connections();
@@ -23,18 +26,16 @@ WorldSnapshot VersionedWorld::snapshot() const {
 }
 
 Result<VersionedWorld> VersionedWorld::from_snapshot(const WorldSnapshot& input) {
-    if (!input.world.valid()) {
-        return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot world id is invalid");
-    }
+    if (!input.world.valid()) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot world id is invalid");
+    if (input.clock_config.real_milliseconds_per_home_minute == 0) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot clock configuration is invalid");
 
-    VersionedWorld restored{input.world};
+    VersionedWorld restored{input.world, input.clock_config};
+    const auto clock_restore = restored.clock_.restore(input.world_time, input.clock_remainder);
+    if (!clock_restore) return Result<VersionedWorld>::failure(clock_restore.error().code, clock_restore.error().message);
 
-    // Restore zone identities first without parents so hydration is independent of ID ordering.
     for (const auto& source : input.zones) {
         ZoneRecord zone = source;
-        if (zone.world != input.world) {
-            return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot contains a foreign zone");
-        }
+        if (zone.world != input.world) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot contains a foreign zone");
         zone.parent.reset();
         const auto result = restored.topology_.restore_zone(std::move(zone));
         if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
@@ -45,24 +46,17 @@ Result<VersionedWorld> VersionedWorld::from_snapshot(const WorldSnapshot& input)
             if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
         }
     }
-
     for (const auto& entity : input.entities) {
-        if (entity.world != input.world) {
-            return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot contains a foreign entity");
-        }
+        if (entity.world != input.world) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot contains a foreign entity");
         const auto result = restored.registry_.restore(entity);
         if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
     }
-
     for (const auto& connection : input.connections) {
         const auto result = restored.topology_.connect(connection);
         if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
     }
-
     for (const auto& placement : input.placements) {
-        if (!restored.registry_.contains(placement.entity)) {
-            return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot placement references a missing entity");
-        }
+        if (!restored.registry_.contains(placement.entity)) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot placement references a missing entity");
         const auto result = restored.topology_.place_entity(placement.entity, placement.zone);
         if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
     }

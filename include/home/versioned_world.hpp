@@ -4,9 +4,11 @@
 #include "home/snapshot.hpp"
 #include "home/topology.hpp"
 #include "home/transaction.hpp"
+#include "home/world_clock.hpp"
 #include "home/world_delta.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <vector>
 
@@ -15,11 +17,13 @@ namespace home {
 class VersionedWorld final {
 public:
     explicit VersionedWorld(WorldId world) noexcept;
+    VersionedWorld(WorldId world, WorldClockConfig clock_config) noexcept;
 
     [[nodiscard]] WorldId world() const noexcept { return registry_.world(); }
     [[nodiscard]] WorldRevision revision() const noexcept { return revision_; }
     [[nodiscard]] const EntityRegistry& entities() const noexcept { return registry_; }
     [[nodiscard]] const TopologyRegistry& topology() const noexcept { return topology_; }
+    [[nodiscard]] const WorldClock& clock() const noexcept { return clock_; }
     [[nodiscard]] const std::vector<WorldDelta>& history() const noexcept { return history_; }
 
     Result<EntityId> create_entity(EntityCreateInfo info);
@@ -32,6 +36,7 @@ public:
     Result<void> connect_zones(ZoneConnection connection);
     Result<void> place_entity(EntityId entity, ZoneId zone);
     Result<void> clear_entity_zone(EntityId entity);
+    Result<WorldTime> advance_time(std::uint64_t real_milliseconds);
 
     Result<TransactionReceipt> execute(const WorldTransaction& transaction);
     [[nodiscard]] WorldSnapshot snapshot() const;
@@ -43,6 +48,7 @@ private:
 
     EntityRegistry registry_;
     TopologyRegistry topology_;
+    WorldClock clock_{};
     WorldRevision revision_{};
     std::vector<WorldDelta> history_{};
 };

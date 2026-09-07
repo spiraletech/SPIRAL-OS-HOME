@@ -3,6 +3,7 @@
 #include "home/entity.hpp"
 #include "home/revision.hpp"
 #include "home/topology.hpp"
+#include "home/world_clock.hpp"
 
 #include <cstdint>
 #include <optional>
@@ -19,37 +20,22 @@ enum class WorldChangeKind : std::uint8_t {
     ZoneCreated,
     ZoneParentChanged,
     ZonesConnected,
-    EntityZoneChanged
+    EntityZoneChanged,
+    WorldTimeAdvanced
 };
 
 struct EntityCreated final { EntityRecord entity{}; };
 struct EntityRemoved final { EntityRecord entity{}; };
-struct EntityTransformUpdated final {
-    EntityId entity{};
-    Transform before{};
-    Transform after{};
-};
+struct EntityTransformUpdated final { EntityId entity{}; Transform before{}; Transform after{}; };
 struct ZoneCreated final { ZoneRecord zone{}; };
-struct ZoneParentChanged final {
-    ZoneId zone{};
-    std::optional<ZoneId> before{};
-    std::optional<ZoneId> after{};
-};
+struct ZoneParentChanged final { ZoneId zone{}; std::optional<ZoneId> before{}; std::optional<ZoneId> after{}; };
 struct ZonesConnected final { ZoneConnection connection{}; };
-struct EntityZoneChanged final {
-    EntityId entity{};
-    std::optional<ZoneId> before{};
-    std::optional<ZoneId> after{};
-};
+struct EntityZoneChanged final { EntityId entity{}; std::optional<ZoneId> before{}; std::optional<ZoneId> after{}; };
+struct WorldTimeAdvanced final { WorldTime before{}; WorldTime after{}; std::uint64_t real_milliseconds{}; };
 
 using WorldChangePayload = std::variant<
-    EntityCreated,
-    EntityRemoved,
-    EntityTransformUpdated,
-    ZoneCreated,
-    ZoneParentChanged,
-    ZonesConnected,
-    EntityZoneChanged
+    EntityCreated, EntityRemoved, EntityTransformUpdated, ZoneCreated,
+    ZoneParentChanged, ZonesConnected, EntityZoneChanged, WorldTimeAdvanced
 >;
 
 struct WorldChange final {
@@ -61,12 +47,10 @@ class WorldDelta final {
 public:
     WorldDelta(WorldRevision from, WorldRevision to, std::vector<WorldChange> changes)
         : from_(from), to_(to), changes_(std::move(changes)) {}
-
     [[nodiscard]] WorldRevision from_revision() const noexcept { return from_; }
     [[nodiscard]] WorldRevision to_revision() const noexcept { return to_; }
     [[nodiscard]] const std::vector<WorldChange>& changes() const noexcept { return changes_; }
     [[nodiscard]] bool empty() const noexcept { return changes_.empty(); }
-
 private:
     WorldRevision from_{};
     WorldRevision to_{};
