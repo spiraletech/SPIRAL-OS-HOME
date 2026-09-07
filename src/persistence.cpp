@@ -12,6 +12,7 @@ WorldSnapshot VersionedWorld::snapshot() const {
     out.clock_config = clock_.config();
     out.world_time = clock_.now();
     out.clock_remainder = clock_.remainder();
+    out.calendar_config = calendar_config_;
     out.entities = registry_.snapshot();
     out.zones = topology_.snapshot_zones();
     out.connections = topology_.snapshot_connections();
@@ -28,8 +29,9 @@ WorldSnapshot VersionedWorld::snapshot() const {
 Result<VersionedWorld> VersionedWorld::from_snapshot(const WorldSnapshot& input) {
     if (!input.world.valid()) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot world id is invalid");
     if (input.clock_config.real_milliseconds_per_home_minute == 0) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot clock configuration is invalid");
+    if (!valid_calendar_date(input.calendar_config.epoch)) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot calendar configuration is invalid");
 
-    VersionedWorld restored{input.world, input.clock_config};
+    VersionedWorld restored{input.world, input.clock_config, input.calendar_config};
     const auto clock_restore = restored.clock_.restore(input.world_time, input.clock_remainder);
     if (!clock_restore) return Result<VersionedWorld>::failure(clock_restore.error().code, clock_restore.error().message);
 
