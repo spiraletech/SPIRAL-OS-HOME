@@ -1,6 +1,7 @@
 #pragma once
 
 #include "home/entity_registry.hpp"
+#include "home/snapshot.hpp"
 #include "home/topology.hpp"
 #include "home/transaction.hpp"
 #include "home/world_delta.hpp"
@@ -33,6 +34,8 @@ public:
     Result<void> clear_entity_zone(EntityId entity);
 
     Result<TransactionReceipt> execute(const WorldTransaction& transaction);
+    [[nodiscard]] WorldSnapshot snapshot() const;
+    [[nodiscard]] static Result<VersionedWorld> from_snapshot(const WorldSnapshot& snapshot);
     [[nodiscard]] Result<std::vector<WorldDelta>> deltas_since(WorldRevision revision) const;
 
 private:
