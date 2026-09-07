@@ -22,6 +22,7 @@ add_library(home_core
  src/needs.cpp
  src/relationships.cpp
  src/inventory.cpp
+ src/progression.cpp
 )
 add_library(HOME::Core ALIAS home_core)
 target_include_directories(home_core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
@@ -59,4 +60,5 @@ if(HOME_BUILD_TESTS)
  home_add_test(14 l14_needs_tests.cpp home.l14.needs_mood_autonomy)
  home_add_test(15 l15_relationships_tests.cpp home.l15.relationships_households)
  home_add_test(16 l16_inventory_tests.cpp home.l16.items_inventory)
+ home_add_test(17 l17_progression_tests.cpp home.l17.skills_tasks_quests)
 endif()
