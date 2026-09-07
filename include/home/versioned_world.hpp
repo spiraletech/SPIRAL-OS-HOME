@@ -3,6 +3,7 @@
 #include "home/calendar.hpp"
 #include "home/entity_registry.hpp"
 #include "home/snapshot.hpp"
+#include "home/temporal_domain.hpp"
 #include "home/topology.hpp"
 #include "home/transaction.hpp"
 #include "home/world_clock.hpp"
@@ -11,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace home {
@@ -28,6 +30,7 @@ public:
     [[nodiscard]] const WorldClock& clock() const noexcept { return clock_; }
     [[nodiscard]] const CalendarConfig& calendar_config() const noexcept { return calendar_config_; }
     [[nodiscard]] CalendarState calendar() const noexcept { return resolve_calendar(clock_.now(), calendar_config_); }
+    [[nodiscard]] const TemporalDomainRegistry& temporal_domains() const noexcept { return temporal_domains_; }
     [[nodiscard]] const std::vector<WorldDelta>& history() const noexcept { return history_; }
 
     Result<EntityId> create_entity(EntityCreateInfo info);
@@ -42,6 +45,12 @@ public:
     Result<void> clear_entity_zone(EntityId entity);
     Result<WorldTime> advance_time(std::uint64_t real_milliseconds);
 
+    Result<void> add_temporal_domain(TemporalDomain domain) { return temporal_domains_.add(std::move(domain)); }
+    Result<void> remove_temporal_domain(TimeDomainId id) { return temporal_domains_.remove(id); }
+    [[nodiscard]] Result<ResolvedTemporalTime> resolve_temporal_time() const {
+        return temporal_domains_.resolve(clock_.now());
+    }
+
     Result<TransactionReceipt> execute(const WorldTransaction& transaction);
     [[nodiscard]] WorldSnapshot snapshot() const;
     [[nodiscard]] static Result<VersionedWorld> from_snapshot(const WorldSnapshot& snapshot);
@@ -53,6 +62,7 @@ private:
     TopologyRegistry topology_;
     WorldClock clock_{};
     CalendarConfig calendar_config_{};
+    TemporalDomainRegistry temporal_domains_{};
     WorldRevision revision_{};
     std::vector<WorldDelta> history_{};
 };
