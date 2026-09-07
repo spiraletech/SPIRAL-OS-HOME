@@ -49,6 +49,16 @@ L6 gives HOME exact persistence without manufacturing fake world mutations.
 
 L13 establishes canonical player-life facts without taking ownership from later needs, mood, autonomy, relationship or skill layers. `PlayerLifeLedger` binds life state to an existing avatar entity, validates canonical home-zone references, tracks life stage and presence, timestamps state against HOME world minutes, rejects stale sequence writes and produces deterministic entity-ordered snapshots.
 
+## L14 — Needs / Mood / Autonomy
+
+L14 establishes deterministic canonical player dynamics while keeping movement and action execution outside HOME.
+
+- Needs are fixed-point integer levels in a stable `0..10000` range across energy, hunger, hygiene, social, fun and safety domains.
+- Mood stores canonical valence, arousal and a coarse band without requiring floating-point state or generator-specific emotion models.
+- Autonomy is a permission policy (`Disabled`, `Advisory`, `Bounded`) with explicit initiative, zone-change and entity-interaction limits; it does not execute movement, choose animation or perform tasks.
+- `PlayerDynamicsLedger` requires an existing entity plus canonical `PlayerLifeState`, rejects invalid ranges and internally inconsistent autonomy policies, prevents stale sequence writes and world-minute regression, and snapshots deterministically by entity.
+- `active_drive` is deliberately a coarse canonical key only; task/quest semantics remain reserved for L17 and physical consequences remain HAKUI-owned.
+
 ## Build and test
 
 ```sh
@@ -59,4 +69,4 @@ ctest --test-dir build -C Release --output-on-failure
 
 ## Roadmap
 
-L1 Foundation ✅ → L2 Entity Registry ✅ → L3 World Revision + Deltas ✅ → L4 Topology/Zones ✅ → L5 Transactions/Validation ✅ → L6 Snapshot/Save/Restore ✅ → L7 World Clock ✅ → L8 Calendar/Seasons ✅ → L9 Temporal Domains ✅ → L10 Events/Festivals/Holidays ✅ → L11 Weather/Climate ✅ → L12 World Affect/Theme Anchors ✅ → L13 Player Life State ✅ → L14 Needs/Mood/Autonomy → L15 Relationships/Households → L16 Items/Inventory → L17 Skills/Tasks/Quests → L18 Subclass Theorism/Aura → L19 HAKUI Adapter → L20 INOKUI Adapter → L21 ENTROKOI Adapter → L22 XENON Adapter → L23 GUFF HOME Cartridge → L24 Mission Bay World Package → L25 HOME v0.1 Vertical Slice.
+L1 Foundation ✅ → L2 Entity Registry ✅ → L3 World Revision + Deltas ✅ → L4 Topology/Zones ✅ → L5 Transactions/Validation ✅ → L6 Snapshot/Save/Restore ✅ → L7 World Clock ✅ → L8 Calendar/Seasons ✅ → L9 Temporal Domains ✅ → L10 Events/Festivals/Holidays ✅ → L11 Weather/Climate ✅ → L12 World Affect/Theme Anchors ✅ → L13 Player Life State ✅ → L14 Needs/Mood/Autonomy ✅ → L15 Relationships/Households → L16 Items/Inventory → L17 Skills/Tasks/Quests → L18 Subclass Theorism/Aura → L19 HAKUI Adapter → L20 INOKUI Adapter → L21 ENTROKOI Adapter → L22 XENON Adapter → L23 GUFF HOME Cartridge → L24 Mission Bay World Package → L25 HOME v0.1 Vertical Slice.
