@@ -2,8 +2,10 @@
 
 #include "home/entity.hpp"
 #include "home/revision.hpp"
+#include "home/topology.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -13,24 +15,42 @@ namespace home {
 enum class WorldChangeKind : std::uint8_t {
     EntityCreated = 0,
     EntityRemoved,
-    EntityTransformUpdated
+    EntityTransformUpdated,
+    ZoneCreated,
+    ZoneParentChanged,
+    ZonesConnected,
+    EntityZoneChanged
 };
 
-struct EntityCreated final {
-    EntityRecord entity{};
-};
-
-struct EntityRemoved final {
-    EntityRecord entity{};
-};
-
+struct EntityCreated final { EntityRecord entity{}; };
+struct EntityRemoved final { EntityRecord entity{}; };
 struct EntityTransformUpdated final {
     EntityId entity{};
     Transform before{};
     Transform after{};
 };
+struct ZoneCreated final { ZoneRecord zone{}; };
+struct ZoneParentChanged final {
+    ZoneId zone{};
+    std::optional<ZoneId> before{};
+    std::optional<ZoneId> after{};
+};
+struct ZonesConnected final { ZoneConnection connection{}; };
+struct EntityZoneChanged final {
+    EntityId entity{};
+    std::optional<ZoneId> before{};
+    std::optional<ZoneId> after{};
+};
 
-using WorldChangePayload = std::variant<EntityCreated, EntityRemoved, EntityTransformUpdated>;
+using WorldChangePayload = std::variant<
+    EntityCreated,
+    EntityRemoved,
+    EntityTransformUpdated,
+    ZoneCreated,
+    ZoneParentChanged,
+    ZonesConnected,
+    EntityZoneChanged
+>;
 
 struct WorldChange final {
     WorldChangeKind kind{WorldChangeKind::EntityCreated};
