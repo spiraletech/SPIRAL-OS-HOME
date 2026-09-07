@@ -2,6 +2,7 @@
 
 #include "home/calendar.hpp"
 #include "home/entity_registry.hpp"
+#include "home/events.hpp"
 #include "home/snapshot.hpp"
 #include "home/temporal_domain.hpp"
 #include "home/topology.hpp"
@@ -31,6 +32,7 @@ public:
     [[nodiscard]] const CalendarConfig& calendar_config() const noexcept { return calendar_config_; }
     [[nodiscard]] CalendarState calendar() const noexcept { return resolve_calendar(clock_.now(), calendar_config_); }
     [[nodiscard]] const TemporalDomainRegistry& temporal_domains() const noexcept { return temporal_domains_; }
+    [[nodiscard]] const EventCatalog& events() const noexcept { return events_; }
     [[nodiscard]] const std::vector<WorldDelta>& history() const noexcept { return history_; }
 
     Result<EntityId> create_entity(EntityCreateInfo info);
@@ -51,6 +53,12 @@ public:
         return temporal_domains_.resolve(clock_.now());
     }
 
+    Result<void> add_event_definition(EventDefinition definition) { return events_.add(std::move(definition)); }
+    Result<void> remove_event_definition(EventId id) { return events_.remove(id); }
+    [[nodiscard]] Result<EventResolution> active_events(EventSelector selector = {}) const {
+        return events_.resolve(calendar(), std::move(selector));
+    }
+
     Result<TransactionReceipt> execute(const WorldTransaction& transaction);
     [[nodiscard]] WorldSnapshot snapshot() const;
     [[nodiscard]] static Result<VersionedWorld> from_snapshot(const WorldSnapshot& snapshot);
@@ -63,6 +71,7 @@ private:
     WorldClock clock_{};
     CalendarConfig calendar_config_{};
     TemporalDomainRegistry temporal_domains_{};
+    EventCatalog events_{};
     WorldRevision revision_{};
     std::vector<WorldDelta> history_{};
 };
