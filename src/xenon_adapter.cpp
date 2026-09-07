@@ -7,8 +7,8 @@ XenonWorldView XenonAdapter::snapshot() const {
     view.world = world_.world();
     view.revision = world_.revision();
     view.calendar = world_.calendar();
-    view.zones = world_.topology().zones();
-    view.connections = world_.topology().connections();
+    view.zones = world_.topology().snapshot_zones();
+    view.connections = world_.topology().snapshot_connections();
 
     const auto records = world_.entities().snapshot();
     view.entities.reserve(records.size());
