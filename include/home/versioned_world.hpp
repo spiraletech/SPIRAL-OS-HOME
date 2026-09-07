@@ -1,5 +1,6 @@
 #pragma once
 
+#include "home/calendar.hpp"
 #include "home/entity_registry.hpp"
 #include "home/snapshot.hpp"
 #include "home/topology.hpp"
@@ -24,6 +25,7 @@ public:
     [[nodiscard]] const EntityRegistry& entities() const noexcept { return registry_; }
     [[nodiscard]] const TopologyRegistry& topology() const noexcept { return topology_; }
     [[nodiscard]] const WorldClock& clock() const noexcept { return clock_; }
+    [[nodiscard]] CalendarState calendar() const noexcept { return resolve_calendar(clock_.now()); }
     [[nodiscard]] const std::vector<WorldDelta>& history() const noexcept { return history_; }
 
     Result<EntityId> create_entity(EntityCreateInfo info);
@@ -45,7 +47,6 @@ public:
 
 private:
     Result<void> commit(std::vector<WorldChange> changes);
-
     EntityRegistry registry_;
     TopologyRegistry topology_;
     WorldClock clock_{};
