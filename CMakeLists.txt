@@ -28,6 +28,7 @@ add_library(home_core
  src/inokui_adapter.cpp
  src/entrokoi_adapter.cpp
  src/xenon_adapter.cpp
+ src/guff_home_cartridge.cpp
 )
 add_library(HOME::Core ALIAS home_core)
 target_include_directories(home_core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
@@ -71,4 +72,5 @@ if(HOME_BUILD_TESTS)
  home_add_test(20 l20_inokui_adapter_tests.cpp home.l20.inokui_adapter)
  home_add_test(21 l21_entrokoi_adapter_tests.cpp home.l21.entrokoi_adapter)
  home_add_test(22 l22_xenon_adapter_tests.cpp home.l22.xenon_adapter)
+ home_add_test(23 l23_guff_home_cartridge_tests.cpp home.l23.guff_home_cartridge)
 endif()
