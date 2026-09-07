@@ -25,6 +25,7 @@ add_library(home_core
  src/progression.cpp
  src/theorism.cpp
  src/hakui_adapter.cpp
+ src/inokui_adapter.cpp
 )
 add_library(HOME::Core ALIAS home_core)
 target_include_directories(home_core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
@@ -65,4 +66,5 @@ if(HOME_BUILD_TESTS)
  home_add_test(17 l17_progression_tests.cpp home.l17.skills_tasks_quests)
  home_add_test(18 l18_theorism_tests.cpp home.l18.subclass_theorism_aura)
  home_add_test(19 l19_hakui_adapter_tests.cpp home.l19.hakui_adapter)
+ home_add_test(20 l20_inokui_adapter_tests.cpp home.l20.inokui_adapter)
 endif()
