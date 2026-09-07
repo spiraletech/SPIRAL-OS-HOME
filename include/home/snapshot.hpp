@@ -1,5 +1,6 @@
 #pragma once
 
+#include "home/calendar.hpp"
 #include "home/entity.hpp"
 #include "home/result.hpp"
 #include "home/revision.hpp"
@@ -26,13 +27,14 @@ struct WorldSnapshot final {
     WorldClockConfig clock_config{};
     WorldTime world_time{};
     std::uint64_t clock_remainder{};
+    CalendarConfig calendar_config{};
     std::vector<EntityRecord> entities{};
     std::vector<ZoneRecord> zones{};
     std::vector<ZoneConnection> connections{};
     std::vector<SnapshotPlacement> placements{};
 };
 
-inline constexpr std::uint32_t kSnapshotFormatVersion = 2;
+inline constexpr std::uint32_t kSnapshotFormatVersion = 3;
 
 Result<std::string> encode_snapshot(const WorldSnapshot& snapshot);
 Result<WorldSnapshot> decode_snapshot(std::string_view encoded);
