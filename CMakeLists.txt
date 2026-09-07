@@ -9,6 +9,7 @@ option(HOME_BUILD_TESTS "Build HOME tests" ON)
 
 add_library(home_core
     src/world_types.cpp
+    src/entity_registry.cpp
 )
 add_library(HOME::Core ALIAS home_core)
 
@@ -28,7 +29,12 @@ endif()
 
 if(HOME_BUILD_TESTS)
     enable_testing()
+
     add_executable(home_l1_tests tests/l1_foundation_tests.cpp)
     target_link_libraries(home_l1_tests PRIVATE HOME::Core)
     add_test(NAME home.l1.foundation COMMAND home_l1_tests)
+
+    add_executable(home_l2_tests tests/l2_entity_registry_tests.cpp)
+    target_link_libraries(home_l2_tests PRIVATE HOME::Core)
+    add_test(NAME home.l2.entity_registry COMMAND home_l2_tests)
 endif()
