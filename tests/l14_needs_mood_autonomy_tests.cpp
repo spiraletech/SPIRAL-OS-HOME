@@ -8,6 +8,8 @@ int main() {
     EntityRegistry entities{WorldId{1}};
     const auto player = entities.create(EntityCreateInfo{EntityKind::Avatar, "operator", "Operator"});
     assert(player.ok());
+    const auto unbound = entities.create(EntityCreateInfo{EntityKind::Avatar, "unbound", "Unbound"});
+    assert(unbound.ok());
 
     TopologyRegistry topology{WorldId{1}};
     const auto home_zone = topology.create_zone(ZoneCreateInfo{ZoneKind::Interior, "home", "Home"});
@@ -62,6 +64,12 @@ int main() {
     assert(!invalid_autonomy_result.ok());
     assert(invalid_autonomy_result.error().code == ErrorCode::ValidationFailed);
 
+    PlayerDynamicsState missing_life = state;
+    missing_life.entity = unbound.value();
+    const auto missing_life_result = dynamics.set(entities, life, missing_life);
+    assert(!missing_life_result.ok());
+    assert(missing_life_result.error().code == ErrorCode::ValidationFailed);
+
     PlayerDynamicsState update = state;
     update.sequence = 2;
     update.updated_world_minute = 30;
@@ -78,15 +86,6 @@ int main() {
     const auto regressed_result = dynamics.set(entities, life, regressed);
     assert(!regressed_result.ok());
     assert(regressed_result.error().code == ErrorCode::RevisionConflict);
-
-    EntityRegistry other_entities{WorldId{2}};
-    const auto outsider = other_entities.create(EntityCreateInfo{EntityKind::Avatar, "outsider", "Outsider"});
-    assert(outsider.ok());
-    PlayerDynamicsState missing_life = state;
-    missing_life.entity = outsider.value();
-    const auto missing_life_result = dynamics.set(other_entities, life, missing_life);
-    assert(!missing_life_result.ok());
-    assert(missing_life_result.error().code == ErrorCode::ValidationFailed);
 
     const auto snapshot = dynamics.snapshot();
     assert(snapshot.size() == 1);
