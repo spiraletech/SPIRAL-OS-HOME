@@ -31,7 +31,13 @@ struct ZoneCreated final { ZoneRecord zone{}; };
 struct ZoneParentChanged final { ZoneId zone{}; std::optional<ZoneId> before{}; std::optional<ZoneId> after{}; };
 struct ZonesConnected final { ZoneConnection connection{}; };
 struct EntityZoneChanged final { EntityId entity{}; std::optional<ZoneId> before{}; std::optional<ZoneId> after{}; };
-struct WorldTimeAdvanced final { WorldTime before{}; WorldTime after{}; std::uint64_t real_milliseconds{}; };
+struct WorldTimeAdvanced final {
+    WorldTime before{};
+    WorldTime after{};
+    std::uint64_t real_milliseconds{};
+    std::uint64_t before_remainder{};
+    std::uint64_t after_remainder{};
+};
 
 using WorldChangePayload = std::variant<
     EntityCreated, EntityRemoved, EntityTransformUpdated, ZoneCreated,
