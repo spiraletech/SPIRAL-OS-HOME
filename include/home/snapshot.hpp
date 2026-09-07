@@ -4,6 +4,7 @@
 #include "home/result.hpp"
 #include "home/revision.hpp"
 #include "home/topology.hpp"
+#include "home/world_clock.hpp"
 
 #include <compare>
 #include <cstdint>
@@ -22,13 +23,16 @@ struct SnapshotPlacement final {
 struct WorldSnapshot final {
     WorldId world{};
     WorldRevision revision{};
+    WorldClockConfig clock_config{};
+    WorldTime world_time{};
+    std::uint64_t clock_remainder{};
     std::vector<EntityRecord> entities{};
     std::vector<ZoneRecord> zones{};
     std::vector<ZoneConnection> connections{};
     std::vector<SnapshotPlacement> placements{};
 };
 
-inline constexpr std::uint32_t kSnapshotFormatVersion = 1;
+inline constexpr std::uint32_t kSnapshotFormatVersion = 2;
 
 Result<std::string> encode_snapshot(const WorldSnapshot& snapshot);
 Result<WorldSnapshot> decode_snapshot(std::string_view encoded);
