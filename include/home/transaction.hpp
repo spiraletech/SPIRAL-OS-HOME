@@ -16,7 +16,7 @@ struct TxRemoveEntity { EntityId id{}; };
 struct TxUpdateTransform { EntityId id{}; Transform transform{}; };
 struct TxCreateZone { ZoneCreateInfo info{}; };
 struct TxSetZoneParent { ZoneId child{}; std::optional<ZoneId> parent{}; };
-struct TxConnectZones { ZoneId from{}; ZoneId to{}; bool bidirectional{true}; };
+struct TxConnectZones { ZoneConnection connection{}; };
 struct TxPlaceEntity { EntityId entity{}; std::optional<ZoneId> zone{}; };
 
 using WorldOperation = std::variant<
