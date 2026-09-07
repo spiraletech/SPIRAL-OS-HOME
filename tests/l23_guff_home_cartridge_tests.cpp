@@ -41,7 +41,7 @@ int main() {
     proposal.requester = "planner";
     proposal.operations.push_back(TxUpdateTransform{
         entity,
-        Transform{Vec3Mm{1200, 3400, 0}, Millidegrees{0}, Millidegrees{0}, Millidegrees{90000}}
+        Transform{Vec3Mm{1200, 3400, 0}, EulerMilliDegrees{0, 90000, 0}}
     });
 
     const auto receipt = cartridge.submit(proposal);
@@ -49,7 +49,7 @@ int main() {
     assert(receipt.value().id == WorldTransactionId{23});
     assert(receipt.value().from_revision == baseline);
     assert(receipt.value().to_revision == world.revision());
-    assert(world.revision().value == baseline.value + 1);
+    assert(world.revision().value() == baseline.value() + 1);
 
     const auto changed = world.entities().find(entity);
     assert(changed);
