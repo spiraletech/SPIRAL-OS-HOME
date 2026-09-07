@@ -2,6 +2,7 @@
 
 #include "home/calendar.hpp"
 #include "home/entity.hpp"
+#include "home/events.hpp"
 #include "home/result.hpp"
 #include "home/revision.hpp"
 #include "home/topology.hpp"
@@ -28,13 +29,14 @@ struct WorldSnapshot final {
     WorldTime world_time{};
     std::uint64_t clock_remainder{};
     CalendarConfig calendar_config{};
+    std::vector<EventDefinition> events{};
     std::vector<EntityRecord> entities{};
     std::vector<ZoneRecord> zones{};
     std::vector<ZoneConnection> connections{};
     std::vector<SnapshotPlacement> placements{};
 };
 
-inline constexpr std::uint32_t kSnapshotFormatVersion = 3;
+inline constexpr std::uint32_t kSnapshotFormatVersion = 4;
 
 Result<std::string> encode_snapshot(const WorldSnapshot& snapshot);
 Result<WorldSnapshot> decode_snapshot(std::string_view encoded);

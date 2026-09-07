@@ -13,6 +13,7 @@ WorldSnapshot VersionedWorld::snapshot() const {
     out.world_time = clock_.now();
     out.clock_remainder = clock_.remainder();
     out.calendar_config = calendar_config_;
+    out.events = events_.snapshot();
     out.entities = registry_.snapshot();
     out.zones = topology_.snapshot_zones();
     out.connections = topology_.snapshot_connections();
@@ -34,6 +35,11 @@ Result<VersionedWorld> VersionedWorld::from_snapshot(const WorldSnapshot& input)
     VersionedWorld restored{input.world, input.clock_config, input.calendar_config};
     const auto clock_restore = restored.clock_.restore(input.world_time, input.clock_remainder);
     if (!clock_restore) return Result<VersionedWorld>::failure(clock_restore.error().code, clock_restore.error().message);
+
+    for (const auto& event : input.events) {
+        const auto result = restored.events_.add(event);
+        if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
+    }
 
     for (const auto& source : input.zones) {
         ZoneRecord zone = source;

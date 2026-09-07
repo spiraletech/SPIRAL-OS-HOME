@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+#include <utility>
 
 namespace home {
 namespace {
@@ -20,6 +21,12 @@ Result<std::string> encode_snapshot(const WorldSnapshot& snapshot) {
         return Result<std::string>::failure(ErrorCode::ValidationFailed, "snapshot calendar epoch is invalid");
     }
 
+    EventCatalog event_validation;
+    for (const auto& event : snapshot.events) {
+        const auto added = event_validation.add(event);
+        if (!added) return Result<std::string>::failure(added.error().code, added.error().message);
+    }
+
     std::ostringstream out;
     out << "HOME_SNAPSHOT " << kSnapshotFormatVersion << '\n';
     out << "WORLD " << snapshot.world.value() << ' ' << snapshot.revision.value() << '\n';
@@ -27,6 +34,17 @@ Result<std::string> encode_snapshot(const WorldSnapshot& snapshot) {
         << snapshot.world_time.milliseconds << ' ' << snapshot.clock_remainder << '\n';
     out << "CALENDAR " << snapshot.calendar_config.epoch.year << ' '
         << snapshot.calendar_config.epoch.month << ' ' << snapshot.calendar_config.epoch.day << '\n';
+
+    out << "EVENTS " << snapshot.events.size() << '\n';
+    for (const auto& event : snapshot.events) {
+        out << "V " << event.id.value() << ' ' << static_cast<unsigned>(event.kind) << ' '
+            << event.priority << ' ' << event.rule.month << ' ' << event.rule.day << ' '
+            << event.rule.duration_days << ' ' << event.affinities.size() << ' '
+            << std::quoted(event.key) << ' ' << std::quoted(event.display_name);
+        for (const auto& affinity : event.affinities) out << ' ' << std::quoted(affinity);
+        out << '\n';
+    }
+
     out << "ENTITIES " << snapshot.entities.size() << '\n';
     for (const auto& e : snapshot.entities) {
         out << "E " << e.id.value() << ' ' << static_cast<unsigned>(e.kind) << ' ' << (e.persistent ? 1 : 0) << ' '
@@ -77,6 +95,35 @@ Result<WorldSnapshot> decode_snapshot(std::string_view encoded) {
     }
 
     std::size_t count = 0;
+    if (format >= 4) {
+        if (!(in >> marker >> count) || marker != "EVENTS") return parse_error("malformed event section");
+        EventCatalog event_validation;
+        for (std::size_t i = 0; i < count; ++i) {
+            std::uint64_t id = 0;
+            unsigned kind = 0, month = 0, day = 0, duration = 0;
+            int priority = 0;
+            std::size_t affinity_count = 0;
+            EventDefinition event{};
+            if (!(in >> marker >> id >> kind >> priority >> month >> day >> duration >> affinity_count
+                  >> std::quoted(event.key) >> std::quoted(event.display_name)) || marker != "V" || id == 0) {
+                return parse_error("malformed event record");
+            }
+            if (kind > static_cast<unsigned>(EventKind::Story)) return parse_error("unknown event kind");
+            event.id = EventId{id};
+            event.kind = static_cast<EventKind>(kind);
+            event.priority = priority;
+            event.rule = AnnualDateRule{month, day, duration};
+            for (std::size_t a = 0; a < affinity_count; ++a) {
+                std::string affinity;
+                if (!(in >> std::quoted(affinity))) return parse_error("malformed event affinity");
+                event.affinities.push_back(std::move(affinity));
+            }
+            const auto added = event_validation.add(event);
+            if (!added) return parse_error("invalid or duplicate event record");
+            snapshot.events.push_back(std::move(event));
+        }
+    }
+
     if (!(in >> marker >> count) || marker != "ENTITIES") return parse_error("malformed entity section");
     for (std::size_t i = 0; i < count; ++i) {
         std::uint64_t id = 0; unsigned kind = 0; int persistent = 0; EntityRecord e{};
