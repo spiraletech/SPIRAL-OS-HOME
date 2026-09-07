@@ -12,6 +12,8 @@ add_library(home_core
  src/versioned_world.cpp
  src/snapshot.cpp
  src/persistence.cpp
+ src/world_clock.cpp
+ src/versioned_world_clock.cpp
 )
 add_library(HOME::Core ALIAS home_core)
 target_include_directories(home_core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
@@ -34,11 +36,11 @@ if(HOME_BUILD_TESTS)
   endif()
   add_test(NAME ${test_name} COMMAND home_l${level}_tests)
  endfunction()
-
  home_add_test(1 l1_foundation_tests.cpp home.l1.foundation)
  home_add_test(2 l2_entity_registry_tests.cpp home.l2.entity_registry)
  home_add_test(3 l3_world_delta_tests.cpp home.l3.world_deltas)
  home_add_test(4 l4_topology_tests.cpp home.l4.topology)
  home_add_test(5 l5_transaction_tests.cpp home.l5.transactions)
  home_add_test(6 l6_persistence_tests.cpp home.l6.persistence)
+ home_add_test(7 l7_world_clock_tests.cpp home.l7.world_clock)
 endif()
