@@ -53,6 +53,10 @@ L14 adds deterministic bounded player-state primitives without stealing behavior
 
 L15 adds canonical social membership facts while keeping behavior and perception downstream. `RelationshipsLedger` owns normalized unordered player-pair relationships, typed relationship kinds, bounded affinity, monotonic relationship revisions, deterministic snapshots, stable `HouseholdId` allocation, named households, sorted unique membership, one-household-per-player validation, household renaming/membership mutation/dissolution and monotonic household revisions. HOME records who is related to whom and who belongs together; HAKUI, INOKUI, ENTROKOI, XENON and GUFF decide how those facts are acted on, shown, perceived, sounded or reasoned about.
 
+## L16 — Items / Inventory
+
+L16 adds deterministic canonical item instances and inventory ownership without turning HOME into a rendering, equipment, or action engine. `InventoryLedger` allocates stable `ItemId`s, stores archetype/display identity, typed item kinds, bounded stack quantities, player ownership and monotonic item revisions. Ownership transfer, stack mutation, consumption, removal, per-player inventory queries, unowned-item queries and ordered snapshots all preserve canonical state while downstream engines decide how items look, equip, animate, sound or are used.
+
 ## Build and test
 
 ```sh
@@ -63,4 +67,4 @@ ctest --test-dir build -C Release --output-on-failure
 
 ## Roadmap
 
-L1 Foundation ✅ → L2 Entity Registry ✅ → L3 World Revision + Deltas ✅ → L4 Topology/Zones ✅ → L5 Transactions/Validation ✅ → L6 Snapshot/Save/Restore ✅ → L7 World Clock ✅ → L8 Calendar/Seasons ✅ → L9 Temporal Domains ✅ → L10 Events/Festivals/Holidays ✅ → L11 Weather/Climate ✅ → L12 World Affect/Theme Anchors ✅ → L13 Player Life State ✅ → L14 Needs/Mood/Autonomy ✅ → L15 Relationships/Households ✅ → L16 Items/Inventory → L17 Skills/Tasks/Quests → L18 Subclass Theorism/Aura → L19 HAKUI Adapter → L20 INOKUI Adapter → L21 ENTROKOI Adapter → L22 XENON Adapter → L23 GUFF HOME Cartridge → L24 Mission Bay World Package → L25 HOME v0.1 Vertical Slice.
+L1 Foundation ✅ → L2 Entity Registry ✅ → L3 World Revision + Deltas ✅ → L4 Topology/Zones ✅ → L5 Transactions/Validation ✅ → L6 Snapshot/Save/Restore ✅ → L7 World Clock ✅ → L8 Calendar/Seasons ✅ → L9 Temporal Domains ✅ → L10 Events/Festivals/Holidays ✅ → L11 Weather/Climate ✅ → L12 World Affect/Theme Anchors ✅ → L13 Player Life State ✅ → L14 Needs/Mood/Autonomy ✅ → L15 Relationships/Households ✅ → L16 Items/Inventory ✅ → L17 Skills/Tasks/Quests → L18 Subclass Theorism/Aura → L19 HAKUI Adapter → L20 INOKUI Adapter → L21 ENTROKOI Adapter → L22 XENON Adapter → L23 GUFF HOME Cartridge → L24 Mission Bay World Package → L25 HOME v0.1 Vertical Slice.
