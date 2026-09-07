@@ -14,6 +14,7 @@ add_library(home_core
  src/persistence.cpp
  src/world_clock.cpp
  src/versioned_world_clock.cpp
+ src/calendar.cpp
 )
 add_library(HOME::Core ALIAS home_core)
 target_include_directories(home_core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
@@ -23,7 +24,6 @@ if(MSVC)
 else()
  target_compile_options(home_core PRIVATE -Wall -Wextra -Wpedantic)
 endif()
-
 if(HOME_BUILD_TESTS)
  enable_testing()
  function(home_add_test level source test_name)
@@ -43,4 +43,5 @@ if(HOME_BUILD_TESTS)
  home_add_test(5 l5_transaction_tests.cpp home.l5.transactions)
  home_add_test(6 l6_persistence_tests.cpp home.l6.persistence)
  home_add_test(7 l7_world_clock_tests.cpp home.l7.world_clock)
+ home_add_test(8 l8_calendar_tests.cpp home.l8.calendar)
 endif()
