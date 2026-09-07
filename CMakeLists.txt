@@ -4,7 +4,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 option(HOME_BUILD_TESTS "Build HOME tests" ON)
-
 add_library(home_core
  src/world_types.cpp
  src/entity_registry.cpp
@@ -15,6 +14,7 @@ add_library(home_core
  src/world_clock.cpp
  src/versioned_world_clock.cpp
  src/calendar.cpp
+ src/temporal_domain.cpp
 )
 add_library(HOME::Core ALIAS home_core)
 target_include_directories(home_core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
@@ -44,4 +44,5 @@ if(HOME_BUILD_TESTS)
  home_add_test(6 l6_persistence_tests.cpp home.l6.persistence)
  home_add_test(7 l7_world_clock_tests.cpp home.l7.world_clock)
  home_add_test(8 l8_calendar_tests.cpp home.l8.calendar)
+ home_add_test(9 l9_temporal_domain_tests.cpp home.l9.temporal_domains)
 endif()
