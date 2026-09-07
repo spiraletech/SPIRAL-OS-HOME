@@ -18,6 +18,7 @@ add_library(home_core
  src/events.cpp
  src/weather.cpp
  src/world_affect.cpp
+ src/player_life.cpp
 )
 add_library(HOME::Core ALIAS home_core)
 target_include_directories(home_core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
@@ -51,4 +52,5 @@ if(HOME_BUILD_TESTS)
  home_add_test(10 l10_events_tests.cpp home.l10.events)
  home_add_test(11 l11_weather_tests.cpp home.l11.weather)
  home_add_test(12 l12_world_affect_tests.cpp home.l12.world_affect)
+ home_add_test(13 l13_player_life_tests.cpp home.l13.player_life)
 endif()
