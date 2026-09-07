@@ -29,10 +29,21 @@ int main() {
     connection.from = child.value();
     connection.to = parent.value();
     connection.bidirectional = true;
-    connection.traversable = true;
-    connection.tag = "boardwalk";
-    const auto connected = world.connect_zones(connection);
+    connection.traversable = false;
+    connection.tag = "maintenance_barrier";
+
+    WorldTransaction connect_tx{};
+    connect_tx.id = WorldTransactionId{1};
+    connect_tx.expected_revision = world.revision();
+    connect_tx.authority = "home.persistence.acceptance";
+    connect_tx.operations = {TxConnectZones{connection}};
+    const auto connected = world.execute(connect_tx);
     assert(connected.ok());
+    assert(!world.topology().directly_traversable(child.value(), parent.value()));
+    const auto canonical_connections = world.topology().snapshot_connections();
+    assert(canonical_connections.size() == 1);
+    assert(canonical_connections.front().tag == "maintenance_barrier");
+    assert(!canonical_connections.front().traversable);
 
     EntityCreateInfo avatar_info{};
     avatar_info.kind = EntityKind::Avatar;
@@ -57,6 +68,8 @@ int main() {
     assert(captured.entities.size() == 1);
     assert(captured.zones.size() == 2);
     assert(captured.connections.size() == 1);
+    assert(captured.connections.front().tag == "maintenance_barrier");
+    assert(!captured.connections.front().traversable);
     assert(captured.placements.size() == 1);
 
     const auto encoded = encode_snapshot(captured);
@@ -64,6 +77,9 @@ int main() {
     const auto decoded = decode_snapshot(encoded.value());
     assert(decoded.ok());
     assert(decoded.value().revision == saved_revision);
+    assert(decoded.value().connections.size() == 1);
+    assert(decoded.value().connections.front().tag == "maintenance_barrier");
+    assert(!decoded.value().connections.front().traversable);
 
     const auto restored_result = VersionedWorld::from_snapshot(decoded.value());
     assert(restored_result.ok());
@@ -75,7 +91,11 @@ int main() {
     assert(restored.entities().find(avatar.value())->transform == moved);
     assert(restored.topology().find(child.value())->parent == parent.value());
     assert(restored.topology().zone_of(avatar.value()) == child.value());
-    assert(restored.topology().directly_traversable(child.value(), parent.value()));
+    assert(!restored.topology().directly_traversable(child.value(), parent.value()));
+    const auto restored_connections = restored.topology().snapshot_connections();
+    assert(restored_connections.size() == 1);
+    assert(restored_connections.front().tag == "maintenance_barrier");
+    assert(!restored_connections.front().traversable);
 
     VersionedWorld resumed = std::move(VersionedWorld::from_snapshot(decoded.value())).value();
     EntityCreateInfo item_info{};
@@ -95,6 +115,8 @@ int main() {
     assert(loaded.value().world == captured.world);
     assert(loaded.value().revision == captured.revision);
     assert(loaded.value().entities.size() == captured.entities.size());
+    assert(loaded.value().connections.front().tag == "maintenance_barrier");
+    assert(!loaded.value().connections.front().traversable);
     std::remove(path);
 
     const auto malformed = decode_snapshot("HOME_SNAPSHOT 999\n");
