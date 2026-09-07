@@ -1,4 +1,5 @@
 #include "home/mission_bay_world.hpp"
+#include "home/snapshot.hpp"
 
 #include <cassert>
 
@@ -35,13 +36,20 @@ int main() {
     assert(package.world.topology().directly_traversable(package.mission_beach, package.bay_waters));
 
     const auto snapshot = package.world.snapshot();
+    const auto encoded = encode_snapshot(snapshot);
+    assert(encoded);
+
     auto restored = VersionedWorld::from_snapshot(snapshot);
     assert(restored);
-    assert(restored.value().snapshot() == snapshot);
+    const auto restored_encoded = encode_snapshot(restored.value().snapshot());
+    assert(restored_encoded);
+    assert(restored_encoded.value() == encoded.value());
 
     auto second = make_mission_bay_world(WorldId{24});
     assert(second);
-    assert(second.value().world.snapshot() == snapshot);
+    const auto second_encoded = encode_snapshot(second.value().world.snapshot());
+    assert(second_encoded);
+    assert(second_encoded.value() == encoded.value());
 
     return 0;
 }
