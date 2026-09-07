@@ -77,6 +77,10 @@ L20 establishes HOME's read-only visual-manifestation boundary. `InokuiAdapter` 
 
 L21 establishes HOME's read-only observer/perception boundary. `EntrokoiAdapter` projects canonical entities, transforms, zone placement, complete zone records, traversal connections and resolved calendar state into a deterministic `EntrokoiWorldView` tagged with the HOME world/revision that produced it. The projection does not choose a camera, visibility set, framing, lens, perceptual effect or observer transform: those remain ENTROKOI authority. HOME supplies canonical facts and topology only, and the adapter exposes no mutation path back into HOME.
 
+## L22 — XENON Adapter
+
+L22 establishes HOME's read-only acoustic/signal boundary. `XenonAdapter` projects canonical entity identity, archetype, display name, transform and zone placement together with complete zone records, traversal connections and resolved calendar state into a deterministic `XenonWorldView` tagged with the HOME world/revision that produced it. The projection does not select samples, synthesize audio, mix channels, apply DSP, spatialize sound or interpret signals: those remain XENON authority. HOME supplies canonical facts and spatial context only, and the adapter exposes no mutation path back into HOME.
+
 ## Build and test
 
 ```sh
@@ -87,4 +91,4 @@ ctest --test-dir build -C Release --output-on-failure
 
 ## Roadmap
 
-L1 Foundation ✅ → L2 Entity Registry ✅ → L3 World Revision + Deltas ✅ → L4 Topology/Zones ✅ → L5 Transactions/Validation ✅ → L6 Snapshot/Save/Restore ✅ → L7 World Clock ✅ → L8 Calendar/Seasons ✅ → L9 Temporal Domains ✅ → L10 Events/Festivals/Holidays ✅ → L11 Weather/Climate ✅ → L12 World Affect/Theme Anchors ✅ → L13 Player Life State ✅ → L14 Needs/Mood/Autonomy ✅ → L15 Relationships/Households ✅ → L16 Items/Inventory ✅ → L17 Skills/Tasks/Quests ✅ → L18 Subclass Theorism/Aura ✅ → L19 HAKUI Adapter ✅ → L20 INOKUI Adapter ✅ → L21 ENTROKOI Adapter ✅ → L22 XENON Adapter → L23 GUFF HOME Cartridge → L24 Mission Bay World Package → L25 HOME v0.1 Vertical Slice.
+L1 Foundation ✅ → L2 Entity Registry ✅ → L3 World Revision + Deltas ✅ → L4 Topology/Zones ✅ → L5 Transactions/Validation ✅ → L6 Snapshot/Save/Restore ✅ → L7 World Clock ✅ → L8 Calendar/Seasons ✅ → L9 Temporal Domains ✅ → L10 Events/Festivals/Holidays ✅ → L11 Weather/Climate ✅ → L12 World Affect/Theme Anchors ✅ → L13 Player Life State ✅ → L14 Needs/Mood/Autonomy ✅ → L15 Relationships/Households ✅ → L16 Items/Inventory ✅ → L17 Skills/Tasks/Quests ✅ → L18 Subclass Theorism/Aura ✅ → L19 HAKUI Adapter ✅ → L20 INOKUI Adapter ✅ → L21 ENTROKOI Adapter ✅ → L22 XENON Adapter ✅ → L23 GUFF HOME Cartridge → L24 Mission Bay World Package → L25 HOME v0.1 Vertical Slice.
