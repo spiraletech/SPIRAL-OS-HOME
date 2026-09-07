@@ -12,17 +12,21 @@ Result<WorldTime> VersionedWorld::advance_time(std::uint64_t real_milliseconds) 
 
     WorldClock staged = clock_;
     const WorldTime before = staged.now();
+    const std::uint64_t before_remainder = staged.remainder();
     const auto advanced = staged.advance_real_milliseconds(real_milliseconds);
     if (!advanced) {
         return Result<WorldTime>::failure(advanced.error().code, advanced.error().message);
     }
-    if (advanced.value() == before) {
-        return Result<WorldTime>::failure(ErrorCode::ValidationFailed, "time advancement produced no canonical change");
+
+    const WorldTime after = advanced.value();
+    const std::uint64_t after_remainder = staged.remainder();
+    if (after == before && after_remainder == before_remainder) {
+        return Result<WorldTime>::failure(ErrorCode::ValidationFailed, "time advancement produced no canonical clock change");
     }
 
     const auto committed = commit({WorldChange{
         WorldChangeKind::WorldTimeAdvanced,
-        WorldTimeAdvanced{before, advanced.value(), real_milliseconds}
+        WorldTimeAdvanced{before, after, real_milliseconds, before_remainder, after_remainder}
     }});
     if (!committed) {
         return Result<WorldTime>::failure(committed.error().code, committed.error().message);
