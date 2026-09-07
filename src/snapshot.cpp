@@ -16,12 +16,17 @@ Result<std::string> encode_snapshot(const WorldSnapshot& snapshot) {
     if (snapshot.clock_config.real_milliseconds_per_home_minute == 0 || snapshot.clock_remainder >= snapshot.clock_config.real_milliseconds_per_home_minute) {
         return Result<std::string>::failure(ErrorCode::ValidationFailed, "snapshot clock state is invalid");
     }
+    if (!valid_calendar_date(snapshot.calendar_config.epoch)) {
+        return Result<std::string>::failure(ErrorCode::ValidationFailed, "snapshot calendar epoch is invalid");
+    }
 
     std::ostringstream out;
     out << "HOME_SNAPSHOT " << kSnapshotFormatVersion << '\n';
     out << "WORLD " << snapshot.world.value() << ' ' << snapshot.revision.value() << '\n';
     out << "CLOCK " << snapshot.clock_config.real_milliseconds_per_home_minute << ' '
         << snapshot.world_time.milliseconds << ' ' << snapshot.clock_remainder << '\n';
+    out << "CALENDAR " << snapshot.calendar_config.epoch.year << ' '
+        << snapshot.calendar_config.epoch.month << ' ' << snapshot.calendar_config.epoch.day << '\n';
     out << "ENTITIES " << snapshot.entities.size() << '\n';
     for (const auto& e : snapshot.entities) {
         out << "E " << e.id.value() << ' ' << static_cast<unsigned>(e.kind) << ' ' << (e.persistent ? 1 : 0) << ' '
@@ -48,7 +53,7 @@ Result<std::string> encode_snapshot(const WorldSnapshot& snapshot) {
 Result<WorldSnapshot> decode_snapshot(std::string_view encoded) {
     std::istringstream in{std::string(encoded)};
     std::string marker; unsigned format = 0;
-    if (!(in >> marker >> format) || marker != "HOME_SNAPSHOT" || (format != 1 && format != kSnapshotFormatVersion)) {
+    if (!(in >> marker >> format) || marker != "HOME_SNAPSHOT" || format < 1 || format > kSnapshotFormatVersion) {
         return parse_error("unsupported or malformed snapshot header");
     }
 
@@ -62,6 +67,13 @@ Result<WorldSnapshot> decode_snapshot(std::string_view encoded) {
         if (!(in >> marker >> ratio >> time >> remainder) || marker != "CLOCK" || ratio == 0 || remainder >= ratio) return parse_error("malformed snapshot clock state");
         snapshot.clock_config.real_milliseconds_per_home_minute = ratio;
         snapshot.world_time = WorldTime{time}; snapshot.clock_remainder = remainder;
+    }
+
+    if (format >= 3) {
+        int year = 0; unsigned month = 0, day = 0;
+        if (!(in >> marker >> year >> month >> day) || marker != "CALENDAR") return parse_error("malformed snapshot calendar state");
+        snapshot.calendar_config.epoch = CalendarDate{year, month, day};
+        if (!valid_calendar_date(snapshot.calendar_config.epoch)) return parse_error("invalid snapshot calendar epoch");
     }
 
     std::size_t count = 0;

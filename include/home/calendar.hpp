@@ -16,6 +16,11 @@ struct CalendarDate final {
     auto operator<=>(const CalendarDate&) const = default;
 };
 
+struct CalendarConfig final {
+    CalendarDate epoch{2026, 1, 1};
+    auto operator<=>(const CalendarConfig&) const = default;
+};
+
 struct CalendarState final {
     CalendarDate date{};
     unsigned hour{};
@@ -27,7 +32,9 @@ struct CalendarState final {
     auto operator<=>(const CalendarState&) const = default;
 };
 
-[[nodiscard]] CalendarState resolve_calendar(WorldTime time) noexcept;
+[[nodiscard]] bool valid_calendar_date(CalendarDate date) noexcept;
+[[nodiscard]] Season season_for_month(unsigned month) noexcept;
+[[nodiscard]] CalendarState resolve_calendar(WorldTime time, CalendarConfig config = {}) noexcept;
 [[nodiscard]] const char* season_name(Season season) noexcept;
 
 } // namespace home

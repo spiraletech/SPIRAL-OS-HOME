@@ -19,13 +19,15 @@ class VersionedWorld final {
 public:
     explicit VersionedWorld(WorldId world) noexcept;
     VersionedWorld(WorldId world, WorldClockConfig clock_config) noexcept;
+    VersionedWorld(WorldId world, WorldClockConfig clock_config, CalendarConfig calendar_config) noexcept;
 
     [[nodiscard]] WorldId world() const noexcept { return registry_.world(); }
     [[nodiscard]] WorldRevision revision() const noexcept { return revision_; }
     [[nodiscard]] const EntityRegistry& entities() const noexcept { return registry_; }
     [[nodiscard]] const TopologyRegistry& topology() const noexcept { return topology_; }
     [[nodiscard]] const WorldClock& clock() const noexcept { return clock_; }
-    [[nodiscard]] CalendarState calendar() const noexcept { return resolve_calendar(clock_.now()); }
+    [[nodiscard]] const CalendarConfig& calendar_config() const noexcept { return calendar_config_; }
+    [[nodiscard]] CalendarState calendar() const noexcept { return resolve_calendar(clock_.now(), calendar_config_); }
     [[nodiscard]] const std::vector<WorldDelta>& history() const noexcept { return history_; }
 
     Result<EntityId> create_entity(EntityCreateInfo info);
@@ -50,6 +52,7 @@ private:
     EntityRegistry registry_;
     TopologyRegistry topology_;
     WorldClock clock_{};
+    CalendarConfig calendar_config_{};
     WorldRevision revision_{};
     std::vector<WorldDelta> history_{};
 };

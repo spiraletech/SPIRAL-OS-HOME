@@ -3,7 +3,13 @@
 namespace home {
 
 VersionedWorld::VersionedWorld(WorldId world, WorldClockConfig clock_config) noexcept
-    : registry_(world), topology_(world), clock_(clock_config) {}
+    : VersionedWorld(world, clock_config, CalendarConfig{}) {}
+
+VersionedWorld::VersionedWorld(WorldId world, WorldClockConfig clock_config, CalendarConfig calendar_config) noexcept
+    : registry_(world),
+      topology_(world),
+      clock_(clock_config),
+      calendar_config_(valid_calendar_date(calendar_config.epoch) ? calendar_config : CalendarConfig{}) {}
 
 Result<WorldTime> VersionedWorld::advance_time(std::uint64_t real_milliseconds) {
     if (real_milliseconds == 0) {
