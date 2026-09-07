@@ -83,7 +83,7 @@ Result<TransactionReceipt> VersionedWorld::execute(const WorldTransaction& tx) {
             } else if constexpr (std::is_same_v<T, TxSetZoneParent>) {
                 const auto* rec=staged_topology.find(command.child);if(!rec){status=Result<void>::failure(ErrorCode::NotFound,"child zone not found");return;}const auto before=rec->parent;auto r=staged_topology.set_parent(command.child,command.parent);if(!r){status=r;return;}changes.push_back({WorldChangeKind::ZoneParentChanged,ZoneParentChanged{command.child,before,command.parent}});
             } else if constexpr (std::is_same_v<T, TxConnectZones>) {
-                ZoneConnection x{command.from,command.to,command.bidirectional};auto r=staged_topology.connect(x);if(!r){status=r;return;}changes.push_back({WorldChangeKind::ZonesConnected,ZonesConnected{x}});
+                const ZoneConnection x = command.connection; auto r=staged_topology.connect(x);if(!r){status=r;return;}changes.push_back({WorldChangeKind::ZonesConnected,ZonesConnected{x}});
             } else if constexpr (std::is_same_v<T, TxPlaceEntity>) {
                 if(!staged_registry.contains(command.entity)){status=Result<void>::failure(ErrorCode::NotFound,"entity not found");return;}const auto before=staged_topology.zone_of(command.entity);if(command.zone){auto r=staged_topology.place_entity(command.entity,*command.zone);if(!r){status=r;return;}}else{if(!before){status=Result<void>::failure(ErrorCode::NotFound,"entity has no zone placement");return;}auto r=staged_topology.clear_entity(command.entity);if(!r){status=r;return;}}changes.push_back({WorldChangeKind::EntityZoneChanged,EntityZoneChanged{command.entity,before,command.zone}});
             }
