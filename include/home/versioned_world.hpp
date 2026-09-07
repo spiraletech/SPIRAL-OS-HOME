@@ -8,6 +8,7 @@
 #include "home/world_delta.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <vector>
 
@@ -15,7 +16,8 @@ namespace home {
 
 class VersionedWorld final {
 public:
-    explicit VersionedWorld(WorldId world, WorldClockConfig clock_config = {}) noexcept;
+    explicit VersionedWorld(WorldId world) noexcept;
+    VersionedWorld(WorldId world, WorldClockConfig clock_config) noexcept;
 
     [[nodiscard]] WorldId world() const noexcept { return registry_.world(); }
     [[nodiscard]] WorldRevision revision() const noexcept { return revision_; }
@@ -46,7 +48,7 @@ private:
 
     EntityRegistry registry_;
     TopologyRegistry topology_;
-    WorldClock clock_;
+    WorldClock clock_{};
     WorldRevision revision_{};
     std::vector<WorldDelta> history_{};
 };
