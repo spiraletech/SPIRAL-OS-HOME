@@ -1,50 +1,44 @@
 cmake_minimum_required(VERSION 3.20)
 project(spiral_os_home VERSION 0.1.0 LANGUAGES CXX)
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-
 option(HOME_BUILD_TESTS "Build HOME tests" ON)
-
-add_library(home_core
-    src/world_types.cpp
-    src/entity_registry.cpp
-    src/topology.cpp
-    src/versioned_world.cpp
-)
+add_library(home_core src/world_types.cpp src/entity_registry.cpp src/topology.cpp src/versioned_world.cpp)
 add_library(HOME::Core ALIAS home_core)
-
-target_include_directories(home_core
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
-)
-
+target_include_directories(home_core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
 target_compile_features(home_core PUBLIC cxx_std_20)
-
 if(MSVC)
-    target_compile_options(home_core PRIVATE /W4 /permissive-)
+ target_compile_options(home_core PRIVATE /W4 /permissive-)
 else()
-    target_compile_options(home_core PRIVATE -Wall -Wextra -Wpedantic)
+ target_compile_options(home_core PRIVATE -Wall -Wextra -Wpedantic)
 endif()
-
 if(HOME_BUILD_TESTS)
-    enable_testing()
-
-    add_executable(home_l1_tests tests/l1_foundation_tests.cpp)
-    target_link_libraries(home_l1_tests PRIVATE HOME::Core)
-    add_test(NAME home.l1.foundation COMMAND home_l1_tests)
-
-    add_executable(home_l2_tests tests/l2_entity_registry_tests.cpp)
-    target_link_libraries(home_l2_tests PRIVATE HOME::Core)
-    add_test(NAME home.l2.entity_registry COMMAND home_l2_tests)
-
-    add_executable(home_l3_tests tests/l3_world_delta_tests.cpp)
-    target_link_libraries(home_l3_tests PRIVATE HOME::Core)
-    add_test(NAME home.l3.world_deltas COMMAND home_l3_tests)
-
-    add_executable(home_l4_tests tests/l4_topology_tests.cpp)
-    target_link_libraries(home_l4_tests PRIVATE HOME::Core)
-    add_test(NAME home.l4.topology COMMAND home_l4_tests)
+ enable_testing()
+ foreach(level IN ITEMS 1 2 3 4 5)
+  if(level EQUAL 1)
+   set(test_file l1_foundation_tests.cpp)
+   set(test_name home.l1.foundation)
+  elseif(level EQUAL 2)
+   set(test_file l2_entity_registry_tests.cpp)
+   set(test_name home.l2.entity_registry)
+  elseif(level EQUAL 3)
+   set(test_file l3_world_delta_tests.cpp)
+   set(test_name home.l3.world_deltas)
+  elseif(level EQUAL 4)
+   set(test_file l4_topology_tests.cpp)
+   set(test_name home.l4.topology)
+  else()
+   set(test_file l5_transaction_tests.cpp)
+   set(test_name home.l5.transactions)
+  endif()
+  add_executable(home_l${level}_tests tests/${test_file})
+  target_link_libraries(home_l${level}_tests PRIVATE HOME::Core)
+  if(MSVC)
+   target_compile_options(home_l${level}_tests PRIVATE /UNDEBUG)
+  else()
+   target_compile_options(home_l${level}_tests PRIVATE -UNDEBUG)
+  endif()
+  add_test(NAME ${test_name} COMMAND home_l${level}_tests)
+ endforeach()
 endif()

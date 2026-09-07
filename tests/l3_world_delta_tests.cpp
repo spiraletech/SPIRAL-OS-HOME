@@ -33,7 +33,8 @@ int main() {
     Transform moved{};
     moved.position = Vec3Mm{5000, 200, -700};
     moved.rotation = EulerMilliDegrees{0, 45000, 0};
-    assert(world.update_transform(EntityId{1}, moved).ok());
+    const auto moved_result = world.update_transform(EntityId{1}, moved);
+    assert(moved_result.ok());
     assert(world.revision() == WorldRevision{2});
 
     const auto& transform_delta = world.history()[1];
@@ -86,7 +87,8 @@ int main() {
     restored.kind = EntityKind::Npc;
     restored.archetype = "spiral.npc";
     restored.display_name = "Resident";
-    assert(world.restore_entity(restored).ok());
+    const auto restore_result = world.restore_entity(restored);
+    assert(restore_result.ok());
     assert(world.revision() == WorldRevision{4});
     assert(world.entities().contains(EntityId{90}));
 

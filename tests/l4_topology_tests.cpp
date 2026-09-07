@@ -56,7 +56,8 @@ int main() {
     boardwalk.bidirectional = true;
     boardwalk.traversable = true;
     boardwalk.tag = "boardwalk";
-    assert(world.connect_zones(boardwalk).ok());
+    const auto connected = world.connect_zones(boardwalk);
+    assert(connected.ok());
     assert(world.topology().directly_traversable(pier_id.value(), belmont_id.value()));
     assert(world.topology().directly_traversable(belmont_id.value(), pier_id.value()));
 
@@ -72,11 +73,13 @@ int main() {
     assert(avatar_id.ok());
 
     const WorldRevision before_place = world.revision();
-    assert(world.place_entity(avatar_id.value(), pier_id.value()).ok());
+    const auto first_place = world.place_entity(avatar_id.value(), pier_id.value());
+    assert(first_place.ok());
     assert(world.revision() == *before_place.next());
     assert(world.topology().zone_of(avatar_id.value()) == pier_id.value());
 
-    assert(world.place_entity(avatar_id.value(), belmont_id.value()).ok());
+    const auto second_place = world.place_entity(avatar_id.value(), belmont_id.value());
+    assert(second_place.ok());
     assert(world.topology().zone_of(avatar_id.value()) == belmont_id.value());
 
     const auto& move_delta = world.history().back();
@@ -99,10 +102,12 @@ int main() {
     assert(!missing_zone.ok());
     assert(missing_zone.error().code == ErrorCode::NotFound);
 
-    assert(world.clear_entity_zone(avatar_id.value()).ok());
+    const auto cleared = world.clear_entity_zone(avatar_id.value());
+    assert(cleared.ok());
     assert(!world.topology().zone_of(avatar_id.value()).has_value());
 
-    assert(world.place_entity(avatar_id.value(), pier_id.value()).ok());
+    const auto replaced = world.place_entity(avatar_id.value(), pier_id.value());
+    assert(replaced.ok());
     const auto removed = world.remove_entity(avatar_id.value());
     assert(removed.ok());
     assert(!world.topology().zone_of(avatar_id.value()).has_value());

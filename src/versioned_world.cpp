@@ -7,15 +7,9 @@ namespace home {
 VersionedWorld::VersionedWorld(WorldId world) noexcept : registry_(world), topology_(world) {}
 
 Result<void> VersionedWorld::commit(std::vector<WorldChange> changes) {
-    if (changes.empty()) {
-        return Result<void>::failure(ErrorCode::ValidationFailed, "cannot commit an empty world delta");
-    }
-
+    if (changes.empty()) return Result<void>::failure(ErrorCode::ValidationFailed, "cannot commit an empty world delta");
     const auto next = revision_.next();
-    if (!next.has_value()) {
-        return Result<void>::failure(ErrorCode::Overflow, "world revision space exhausted");
-    }
-
+    if (!next.has_value()) return Result<void>::failure(ErrorCode::Overflow, "world revision space exhausted");
     const WorldRevision from = revision_;
     revision_ = *next;
     history_.emplace_back(from, revision_, std::move(changes));
@@ -23,193 +17,85 @@ Result<void> VersionedWorld::commit(std::vector<WorldChange> changes) {
 }
 
 Result<EntityId> VersionedWorld::create_entity(EntityCreateInfo info) {
-    const auto created = registry_.create(std::move(info));
-    if (!created) return created;
-
-    const EntityId id = created.value();
-    const EntityRecord* record = registry_.find(id);
-    if (record == nullptr) {
-        return Result<EntityId>::failure(ErrorCode::InternalError, "created entity missing from registry");
-    }
-
-    const auto committed = commit({WorldChange{WorldChangeKind::EntityCreated, EntityCreated{*record}}});
-    if (!committed) {
-        registry_.remove(id);
-        return Result<EntityId>::failure(committed.error().code, committed.error().message);
-    }
+    const auto created = registry_.create(std::move(info)); if (!created) return created;
+    const EntityId id = created.value(); const EntityRecord* record = registry_.find(id);
+    if (!record) return Result<EntityId>::failure(ErrorCode::InternalError, "created entity missing from registry");
+    const auto c = commit({WorldChange{WorldChangeKind::EntityCreated, EntityCreated{*record}}});
+    if (!c) { registry_.remove(id); return Result<EntityId>::failure(c.error().code, c.error().message); }
     return Result<EntityId>::success(id);
 }
 
 Result<void> VersionedWorld::restore_entity(EntityRecord record) {
-    const EntityRecord copy = record;
-    const auto restored = registry_.restore(std::move(record));
-    if (!restored) return restored;
-
-    const auto committed = commit({WorldChange{WorldChangeKind::EntityCreated, EntityCreated{copy}}});
-    if (!committed) {
-        registry_.remove(copy.id);
-        return committed;
-    }
-    return Result<void>::success();
+    const EntityRecord copy = record; const auto r = registry_.restore(std::move(record)); if (!r) return r;
+    const auto c = commit({WorldChange{WorldChangeKind::EntityCreated, EntityCreated{copy}}});
+    if (!c) { registry_.remove(copy.id); return c; } return Result<void>::success();
 }
 
 Result<EntityRecord> VersionedWorld::remove_entity(EntityId id) {
-    const auto prior_zone = topology_.zone_of(id);
-    const auto removed = registry_.remove(id);
-    if (!removed) return removed;
-
-    EntityRecord record = removed.value();
-    std::vector<WorldChange> changes;
-    if (prior_zone.has_value()) {
-        const auto cleared = topology_.clear_entity(id);
-        if (!cleared) {
-            registry_.restore(record);
-            return Result<EntityRecord>::failure(cleared.error().code, cleared.error().message);
-        }
-        changes.push_back(WorldChange{
-            WorldChangeKind::EntityZoneChanged,
-            EntityZoneChanged{id, prior_zone, std::nullopt}
-        });
-    }
-    changes.push_back(WorldChange{WorldChangeKind::EntityRemoved, EntityRemoved{record}});
-
-    const auto committed = commit(std::move(changes));
-    if (!committed) {
-        registry_.restore(record);
-        if (prior_zone.has_value()) topology_.place_entity(id, *prior_zone);
-        return Result<EntityRecord>::failure(committed.error().code, committed.error().message);
-    }
+    const auto prior = topology_.zone_of(id); const auto removed = registry_.remove(id); if (!removed) return removed;
+    EntityRecord record = removed.value(); std::vector<WorldChange> changes;
+    if (prior) { const auto cleared = topology_.clear_entity(id); if (!cleared) { registry_.restore(record); return Result<EntityRecord>::failure(cleared.error().code, cleared.error().message); }
+        changes.push_back({WorldChangeKind::EntityZoneChanged, EntityZoneChanged{id, prior, std::nullopt}}); }
+    changes.push_back({WorldChangeKind::EntityRemoved, EntityRemoved{record}});
+    const auto c = commit(std::move(changes)); if (!c) { registry_.restore(record); if (prior) topology_.place_entity(id,*prior); return Result<EntityRecord>::failure(c.error().code,c.error().message); }
     return Result<EntityRecord>::success(std::move(record));
 }
 
 Result<void> VersionedWorld::update_transform(EntityId id, Transform transform) {
-    EntityRecord* record = registry_.find_mutable(id);
-    if (record == nullptr) {
-        return Result<void>::failure(ErrorCode::NotFound, "entity not found");
-    }
-    if (record->transform == transform) {
-        return Result<void>::failure(ErrorCode::ValidationFailed, "transform update produced no state change");
-    }
-
-    const Transform before = record->transform;
-    record->transform = transform;
-    const auto committed = commit({WorldChange{
-        WorldChangeKind::EntityTransformUpdated,
-        EntityTransformUpdated{id, before, transform}
-    }});
-    if (!committed) {
-        record->transform = before;
-        return committed;
-    }
-    return Result<void>::success();
+    EntityRecord* r=registry_.find_mutable(id); if(!r) return Result<void>::failure(ErrorCode::NotFound,"entity not found");
+    if(r->transform==transform) return Result<void>::failure(ErrorCode::ValidationFailed,"transform update produced no state change");
+    const Transform before=r->transform; r->transform=transform; const auto c=commit({{WorldChangeKind::EntityTransformUpdated,EntityTransformUpdated{id,before,transform}}});
+    if(!c){r->transform=before;return c;} return Result<void>::success();
 }
 
 Result<ZoneId> VersionedWorld::create_zone(ZoneCreateInfo info) {
-    const auto created = topology_.create_zone(std::move(info));
-    if (!created) return created;
-    const ZoneId id = created.value();
-    const ZoneRecord* record = topology_.find(id);
-    if (record == nullptr) {
-        return Result<ZoneId>::failure(ErrorCode::InternalError, "created zone missing from topology");
-    }
-    const auto committed = commit({WorldChange{WorldChangeKind::ZoneCreated, ZoneCreated{*record}}});
-    if (!committed) {
-        return Result<ZoneId>::failure(committed.error().code, committed.error().message);
-    }
-    return Result<ZoneId>::success(id);
+    const auto z=topology_.create_zone(std::move(info)); if(!z)return z; const auto* r=topology_.find(z.value());
+    if(!r)return Result<ZoneId>::failure(ErrorCode::InternalError,"created zone missing from topology");
+    const auto c=commit({{WorldChangeKind::ZoneCreated,ZoneCreated{*r}}}); if(!c)return Result<ZoneId>::failure(c.error().code,c.error().message); return z;
 }
+Result<void> VersionedWorld::restore_zone(ZoneRecord zone){const auto copy=zone;const auto r=topology_.restore_zone(std::move(zone));if(!r)return r;return commit({{WorldChangeKind::ZoneCreated,ZoneCreated{copy}}});}
+Result<void> VersionedWorld::set_zone_parent(ZoneId child,std::optional<ZoneId> parent){const auto* z=topology_.find(child);if(!z)return Result<void>::failure(ErrorCode::NotFound,"child zone not found");const auto before=z->parent;const auto r=topology_.set_parent(child,parent);if(!r)return r;const auto c=commit({{WorldChangeKind::ZoneParentChanged,ZoneParentChanged{child,before,parent}}});if(!c){topology_.set_parent(child,before);return c;}return Result<void>::success();}
+Result<void> VersionedWorld::connect_zones(ZoneConnection x){const auto copy=x;const auto r=topology_.connect(std::move(x));if(!r)return r;const auto c=commit({{WorldChangeKind::ZonesConnected,ZonesConnected{copy}}});if(!c){topology_.disconnect(copy.from,copy.to);return c;}return Result<void>::success();}
+Result<void> VersionedWorld::place_entity(EntityId e,ZoneId z){if(!registry_.contains(e))return Result<void>::failure(ErrorCode::NotFound,"entity not found");const auto before=topology_.zone_of(e);const auto r=topology_.place_entity(e,z);if(!r)return r;const auto c=commit({{WorldChangeKind::EntityZoneChanged,EntityZoneChanged{e,before,z}}});if(!c){if(before)topology_.place_entity(e,*before);else topology_.clear_entity(e);return c;}return Result<void>::success();}
+Result<void> VersionedWorld::clear_entity_zone(EntityId e){if(!registry_.contains(e))return Result<void>::failure(ErrorCode::NotFound,"entity not found");const auto before=topology_.zone_of(e);if(!before)return Result<void>::failure(ErrorCode::NotFound,"entity has no zone placement");const auto r=topology_.clear_entity(e);if(!r)return r;const auto c=commit({{WorldChangeKind::EntityZoneChanged,EntityZoneChanged{e,before,std::nullopt}}});if(!c){topology_.place_entity(e,*before);return c;}return Result<void>::success();}
 
-Result<void> VersionedWorld::restore_zone(ZoneRecord zone) {
-    const ZoneRecord copy = zone;
-    const auto restored = topology_.restore_zone(std::move(zone));
-    if (!restored) return restored;
-    return commit({WorldChange{WorldChangeKind::ZoneCreated, ZoneCreated{copy}}});
-}
+Result<TransactionReceipt> VersionedWorld::execute(const WorldTransaction& tx) {
+    if (!tx.id.valid()) return Result<TransactionReceipt>::failure(ErrorCode::InvalidArgument,"transaction id must be valid");
+    if (tx.authority.empty()) return Result<TransactionReceipt>::failure(ErrorCode::ValidationFailed,"transaction authority must not be empty");
+    if (tx.expected_revision != revision_) return Result<TransactionReceipt>::failure(ErrorCode::RevisionConflict,"transaction expected revision does not match canonical revision");
+    if (tx.operations.empty()) return Result<TransactionReceipt>::failure(ErrorCode::ValidationFailed,"transaction must contain operations");
 
-Result<void> VersionedWorld::set_zone_parent(ZoneId child, std::optional<ZoneId> parent) {
-    const ZoneRecord* zone = topology_.find(child);
-    if (zone == nullptr) {
-        return Result<void>::failure(ErrorCode::NotFound, "child zone not found");
-    }
-    const auto before = zone->parent;
-    const auto changed = topology_.set_parent(child, parent);
-    if (!changed) return changed;
-    const auto committed = commit({WorldChange{
-        WorldChangeKind::ZoneParentChanged,
-        ZoneParentChanged{child, before, parent}
-    }});
-    if (!committed) {
-        topology_.set_parent(child, before);
-        return committed;
-    }
-    return Result<void>::success();
-}
+    EntityRegistry staged_registry = registry_; TopologyRegistry staged_topology = topology_;
+    std::vector<WorldChange> changes; TransactionReceipt receipt{tx.id, revision_, revision_, {}, {}};
 
-Result<void> VersionedWorld::connect_zones(ZoneConnection connection) {
-    const ZoneConnection copy = connection;
-    const auto connected = topology_.connect(std::move(connection));
-    if (!connected) return connected;
-    const auto committed = commit({WorldChange{WorldChangeKind::ZonesConnected, ZonesConnected{copy}}});
-    if (!committed) {
-        topology_.disconnect(copy.from, copy.to);
-        return committed;
-    }
-    return Result<void>::success();
-}
-
-Result<void> VersionedWorld::place_entity(EntityId entity, ZoneId zone) {
-    if (!registry_.contains(entity)) {
-        return Result<void>::failure(ErrorCode::NotFound, "entity not found");
-    }
-    const auto before = topology_.zone_of(entity);
-    const auto placed = topology_.place_entity(entity, zone);
-    if (!placed) return placed;
-    const auto committed = commit({WorldChange{
-        WorldChangeKind::EntityZoneChanged,
-        EntityZoneChanged{entity, before, zone}
-    }});
-    if (!committed) {
-        if (before.has_value()) topology_.place_entity(entity, *before);
-        else topology_.clear_entity(entity);
-        return committed;
-    }
-    return Result<void>::success();
-}
-
-Result<void> VersionedWorld::clear_entity_zone(EntityId entity) {
-    if (!registry_.contains(entity)) {
-        return Result<void>::failure(ErrorCode::NotFound, "entity not found");
-    }
-    const auto before = topology_.zone_of(entity);
-    if (!before.has_value()) {
-        return Result<void>::failure(ErrorCode::NotFound, "entity has no zone placement");
-    }
-    const auto cleared = topology_.clear_entity(entity);
-    if (!cleared) return cleared;
-    const auto committed = commit({WorldChange{
-        WorldChangeKind::EntityZoneChanged,
-        EntityZoneChanged{entity, before, std::nullopt}
-    }});
-    if (!committed) {
-        topology_.place_entity(entity, *before);
-        return committed;
-    }
-    return Result<void>::success();
-}
-
-Result<std::vector<WorldDelta>> VersionedWorld::deltas_since(WorldRevision revision) const {
-    if (revision > revision_) {
-        return Result<std::vector<WorldDelta>>::failure(
-            ErrorCode::RevisionConflict,
-            "requested revision is ahead of canonical world revision"
-        );
+    for (const auto& op : tx.operations) {
+        Result<void> status = Result<void>::success();
+        std::visit([&](const auto& command) {
+            using T = std::decay_t<decltype(command)>;
+            if constexpr (std::is_same_v<T, TxCreateEntity>) {
+                auto r=staged_registry.create(command.info); if(!r){status=Result<void>::failure(r.error().code,r.error().message);return;} const auto* rec=staged_registry.find(r.value()); receipt.created_entities.push_back(r.value()); changes.push_back({WorldChangeKind::EntityCreated,EntityCreated{*rec}});
+            } else if constexpr (std::is_same_v<T, TxRemoveEntity>) {
+                const auto prior=staged_topology.zone_of(command.id); auto r=staged_registry.remove(command.id); if(!r){status=Result<void>::failure(r.error().code,r.error().message);return;} if(prior){staged_topology.clear_entity(command.id);changes.push_back({WorldChangeKind::EntityZoneChanged,EntityZoneChanged{command.id,prior,std::nullopt}});} changes.push_back({WorldChangeKind::EntityRemoved,EntityRemoved{r.value()}});
+            } else if constexpr (std::is_same_v<T, TxUpdateTransform>) {
+                auto* rec=staged_registry.find_mutable(command.id); if(!rec){status=Result<void>::failure(ErrorCode::NotFound,"entity not found");return;} if(rec->transform==command.transform){status=Result<void>::failure(ErrorCode::ValidationFailed,"transform update produced no state change");return;} const auto before=rec->transform;rec->transform=command.transform;changes.push_back({WorldChangeKind::EntityTransformUpdated,EntityTransformUpdated{command.id,before,command.transform}});
+            } else if constexpr (std::is_same_v<T, TxCreateZone>) {
+                auto r=staged_topology.create_zone(command.info);if(!r){status=Result<void>::failure(r.error().code,r.error().message);return;}const auto* rec=staged_topology.find(r.value());receipt.created_zones.push_back(r.value());changes.push_back({WorldChangeKind::ZoneCreated,ZoneCreated{*rec}});
+            } else if constexpr (std::is_same_v<T, TxSetZoneParent>) {
+                const auto* rec=staged_topology.find(command.child);if(!rec){status=Result<void>::failure(ErrorCode::NotFound,"child zone not found");return;}const auto before=rec->parent;auto r=staged_topology.set_parent(command.child,command.parent);if(!r){status=r;return;}changes.push_back({WorldChangeKind::ZoneParentChanged,ZoneParentChanged{command.child,before,command.parent}});
+            } else if constexpr (std::is_same_v<T, TxConnectZones>) {
+                ZoneConnection x{command.from,command.to,command.bidirectional};auto r=staged_topology.connect(x);if(!r){status=r;return;}changes.push_back({WorldChangeKind::ZonesConnected,ZonesConnected{x}});
+            } else if constexpr (std::is_same_v<T, TxPlaceEntity>) {
+                if(!staged_registry.contains(command.entity)){status=Result<void>::failure(ErrorCode::NotFound,"entity not found");return;}const auto before=staged_topology.zone_of(command.entity);if(command.zone){auto r=staged_topology.place_entity(command.entity,*command.zone);if(!r){status=r;return;}}else{if(!before){status=Result<void>::failure(ErrorCode::NotFound,"entity has no zone placement");return;}auto r=staged_topology.clear_entity(command.entity);if(!r){status=r;return;}}changes.push_back({WorldChangeKind::EntityZoneChanged,EntityZoneChanged{command.entity,before,command.zone}});
+            }
+        }, op);
+        if (!status) return Result<TransactionReceipt>::failure(status.error().code,status.error().message);
     }
 
-    std::vector<WorldDelta> output;
-    for (const auto& delta : history_) {
-        if (delta.to_revision() > revision) output.push_back(delta);
-    }
-    return Result<std::vector<WorldDelta>>::success(std::move(output));
+    const auto next=revision_.next(); if(!next) return Result<TransactionReceipt>::failure(ErrorCode::Overflow,"world revision space exhausted");
+    registry_=std::move(staged_registry); topology_=std::move(staged_topology); const WorldRevision from=revision_; revision_=*next; history_.emplace_back(from,revision_,std::move(changes)); receipt.to_revision=revision_;
+    return Result<TransactionReceipt>::success(std::move(receipt));
 }
+
+Result<std::vector<WorldDelta>> VersionedWorld::deltas_since(WorldRevision r) const {if(r>revision_)return Result<std::vector<WorldDelta>>::failure(ErrorCode::RevisionConflict,"requested revision is ahead of canonical world revision");std::vector<WorldDelta> out;for(const auto& d:history_)if(d.to_revision()>r)out.push_back(d);return Result<std::vector<WorldDelta>>::success(std::move(out));}
 
 } // namespace home
