@@ -13,6 +13,6 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -DHOME_BUILD_TESTS=ON
       - name: Build
-        run: cmake --build build --config Release
+        run: cmake --build build --config Debug
       - name: Test
-        run: ctest --test-dir build -C Release --output-on-failure
+        run: ctest --test-dir build -C Debug --output-on-failure
