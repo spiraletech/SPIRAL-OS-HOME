@@ -6,6 +6,7 @@
 #include "home/result.hpp"
 #include "home/revision.hpp"
 #include "home/topology.hpp"
+#include "home/weather.hpp"
 #include "home/world_clock.hpp"
 
 #include <compare>
@@ -30,13 +31,15 @@ struct WorldSnapshot final {
     std::uint64_t clock_remainder{};
     CalendarConfig calendar_config{};
     std::vector<EventDefinition> events{};
+    std::vector<ClimateProfile> climates{};
+    std::vector<WeatherState> weather{};
     std::vector<EntityRecord> entities{};
     std::vector<ZoneRecord> zones{};
     std::vector<ZoneConnection> connections{};
     std::vector<SnapshotPlacement> placements{};
 };
 
-inline constexpr std::uint32_t kSnapshotFormatVersion = 4;
+inline constexpr std::uint32_t kSnapshotFormatVersion = 5;
 
 Result<std::string> encode_snapshot(const WorldSnapshot& snapshot);
 Result<WorldSnapshot> decode_snapshot(std::string_view encoded);
