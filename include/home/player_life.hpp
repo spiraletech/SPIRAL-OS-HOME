@@ -26,15 +26,22 @@ struct PlayerLifeState final {
     auto operator<=>(const PlayerLifeState&) const = default;
 };
 
+Result<void> validate_player_life_state(
+    const EntityRegistry& entities,
+    const TopologyRegistry& topology,
+    const PlayerLifeState& state);
+
 class PlayerLifeLedger final {
 public:
     Result<void> set(
         const EntityRegistry& entities,
         const TopologyRegistry& topology,
         PlayerLifeState state);
+    Result<PlayerLifeState> remove(EntityId entity);
 
     [[nodiscard]] const PlayerLifeState* find(EntityId entity) const noexcept;
     [[nodiscard]] std::vector<PlayerLifeState> snapshot() const;
+    [[nodiscard]] std::size_t size() const noexcept { return states_.size(); }
 
 private:
     std::vector<PlayerLifeState> states_{};
