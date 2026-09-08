@@ -2,11 +2,14 @@
 
 #include <algorithm>
 #include <string_view>
+#include <utility>
 
 namespace home {
 namespace {
 bool event_has_affinity(const EventDefinition& event, std::string_view affinity) {
-    return std::find(event.affinities.begin(), event.affinities.end(), affinity) != event.affinities.end();
+    return std::any_of(event.affinities.begin(), event.affinities.end(), [&](const std::string& tag) {
+        return std::string_view{tag} == affinity;
+    });
 }
 
 bool has_halloween_event(const std::vector<EventDefinition>& events) {
@@ -19,7 +22,8 @@ unsigned clamp_permille(unsigned value) { return std::min(value, 1000u); }
 } // namespace
 
 Result<void> validate_world_affect_state(const WorldAffectState& state) {
-    if (state.valence_milli < -1000 || state.valence_milli > 1000
+    if (static_cast<unsigned>(state.tone) > static_cast<unsigned>(WorldTone::Dreamlike)
+        || state.valence_milli < -1000 || state.valence_milli > 1000
         || state.intensity_permille > 1000 || state.stability_permille > 1000) {
         return Result<void>::failure(ErrorCode::ValidationFailed, "world affect state is out of range");
     }
@@ -27,8 +31,10 @@ Result<void> validate_world_affect_state(const WorldAffectState& state) {
 }
 
 Result<void> validate_world_anchor_state(const WorldAnchorState& state) {
-    if (state.strength_permille > 1000) {
-        return Result<void>::failure(ErrorCode::ValidationFailed, "theme anchor strength is out of range");
+    if (static_cast<unsigned>(state.anchor) > static_cast<unsigned>(ThemeAnchor::HauntedHalloweenRain)
+        || static_cast<unsigned>(state.source) > static_cast<unsigned>(AnchorSource::AuthorizedOverride)
+        || state.strength_permille > 1000) {
+        return Result<void>::failure(ErrorCode::ValidationFailed, "theme anchor state is out of range");
     }
     switch (state.source) {
         case AnchorSource::None:
