@@ -5,6 +5,7 @@
 #include "home/topology.hpp"
 
 #include <compare>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <vector>
