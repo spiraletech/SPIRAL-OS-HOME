@@ -5,6 +5,7 @@
 #include "home/events.hpp"
 #include "home/needs_mood_autonomy.hpp"
 #include "home/player_life.hpp"
+#include "home/relationships.hpp"
 #include "home/snapshot.hpp"
 #include "home/temporal_domain.hpp"
 #include "home/topology.hpp"
@@ -43,6 +44,7 @@ public:
     [[nodiscard]] const WorldAnchorState& anchor() const noexcept { return anchor_; }
     [[nodiscard]] const PlayerLifeLedger& player_life() const noexcept { return player_life_; }
     [[nodiscard]] const PlayerDynamicsLedger& player_dynamics() const noexcept { return player_dynamics_; }
+    [[nodiscard]] const RelationshipsLedger& relationships() const noexcept { return relationships_; }
     [[nodiscard]] const std::vector<WorldDelta>& history() const noexcept { return history_; }
 
     Result<EntityId> create_entity(EntityCreateInfo info);
@@ -59,15 +61,11 @@ public:
 
     Result<void> add_temporal_domain(TemporalDomain domain) { return temporal_domains_.add(std::move(domain)); }
     Result<void> remove_temporal_domain(TimeDomainId id) { return temporal_domains_.remove(id); }
-    [[nodiscard]] Result<ResolvedTemporalTime> resolve_temporal_time() const {
-        return temporal_domains_.resolve(clock_.now());
-    }
+    [[nodiscard]] Result<ResolvedTemporalTime> resolve_temporal_time() const { return temporal_domains_.resolve(clock_.now()); }
 
     Result<void> add_event_definition(EventDefinition definition) { return events_.add(std::move(definition)); }
     Result<void> remove_event_definition(EventId id) { return events_.remove(id); }
-    [[nodiscard]] Result<EventResolution> active_events(EventSelector selector = {}) const {
-        return events_.resolve(calendar(), std::move(selector));
-    }
+    [[nodiscard]] Result<EventResolution> active_events(EventSelector selector = {}) const { return events_.resolve(calendar(), std::move(selector)); }
 
     Result<void> set_climate_profile(ClimateProfile profile);
     Result<WeatherState> evolve_zone_weather(ZoneId zone, std::uint64_t entropy);
@@ -78,6 +76,12 @@ public:
     Result<void> set_player_life_state(PlayerLifeState state);
     Result<void> set_player_dynamics_state(PlayerDynamicsState state);
     [[nodiscard]] Result<AutonomyDecision> resolve_player_autonomy(EntityId entity) const;
+
+    Result<void> set_relationship_state(RelationshipState state);
+    Result<void> remove_relationship(EntityId from, EntityId to);
+    Result<HouseholdId> create_household(HouseholdCreateInfo info);
+    Result<void> set_household_state(HouseholdState state);
+    Result<void> dissolve_household(HouseholdId id);
 
     Result<TransactionReceipt> execute(const WorldTransaction& transaction);
     [[nodiscard]] WorldSnapshot snapshot() const;
@@ -98,6 +102,7 @@ private:
     WorldAnchorState anchor_{};
     PlayerLifeLedger player_life_{};
     PlayerDynamicsLedger player_dynamics_{};
+    RelationshipsLedger relationships_{};
     WorldRevision revision_{};
     std::vector<WorldDelta> history_{};
 };
