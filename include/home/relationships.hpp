@@ -82,6 +82,10 @@ public:
         const EntityRegistry& entities,
         const PlayerLifeLedger& life,
         RelationshipState state);
+    Result<void> restore_relationship(
+        const EntityRegistry& entities,
+        const PlayerLifeLedger& life,
+        RelationshipState state);
     Result<RelationshipState> remove_relationship(EntityId from, EntityId to);
 
     Result<HouseholdId> create_household(
@@ -94,8 +98,13 @@ public:
         const TopologyRegistry& topology,
         const PlayerLifeLedger& life,
         HouseholdState state);
+    Result<void> restore_household(
+        const EntityRegistry& entities,
+        const TopologyRegistry& topology,
+        const PlayerLifeLedger& life,
+        HouseholdState state);
     Result<HouseholdState> dissolve_household(HouseholdId id);
-    Result<SocialPurgeResult> purge_entity(EntityId entity);
+    Result<SocialPurgeResult> purge_entity(EntityId entity, std::uint64_t updated_world_minute);
 
     [[nodiscard]] const RelationshipState* find_relationship(EntityId from, EntityId to) const noexcept;
     [[nodiscard]] const HouseholdState* find_household(HouseholdId id) const noexcept;
