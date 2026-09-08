@@ -18,6 +18,7 @@ struct ClimateProfile final {
     unsigned wetness_permille{300};
     unsigned wind_permille{250};
     std::uint64_t seed{1};
+    auto operator<=>(const ClimateProfile&) const = default;
 };
 
 struct WeatherState final {
@@ -33,15 +34,30 @@ struct WeatherState final {
     auto operator<=>(const WeatherState&) const = default;
 };
 
+[[nodiscard]] bool valid_climate_profile(const ClimateProfile& climate) noexcept;
+[[nodiscard]] bool valid_weather_state(const WeatherState& state) noexcept;
+[[nodiscard]] WeatherState initial_weather_state(const ClimateProfile& climate) noexcept;
+
 Result<WeatherState> evolve_weather(
     const WeatherState& previous,
     const ClimateProfile& climate,
     Season season,
     std::uint64_t entropy);
 
+class ClimateCatalog final {
+public:
+    Result<void> set(ClimateProfile profile);
+    Result<void> remove(ZoneId zone);
+    [[nodiscard]] const ClimateProfile* find(ZoneId zone) const noexcept;
+    [[nodiscard]] std::vector<ClimateProfile> snapshot() const;
+private:
+    std::vector<ClimateProfile> profiles_{};
+};
+
 class WeatherLedger final {
 public:
     Result<void> set(WeatherState state);
+    Result<void> remove(ZoneId zone);
     [[nodiscard]] const WeatherState* find(ZoneId zone) const noexcept;
     [[nodiscard]] std::vector<WeatherState> snapshot() const;
 private:

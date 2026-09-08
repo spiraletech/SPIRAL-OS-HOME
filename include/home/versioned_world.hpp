@@ -7,6 +7,7 @@
 #include "home/temporal_domain.hpp"
 #include "home/topology.hpp"
 #include "home/transaction.hpp"
+#include "home/weather.hpp"
 #include "home/world_clock.hpp"
 #include "home/world_delta.hpp"
 
@@ -33,6 +34,8 @@ public:
     [[nodiscard]] CalendarState calendar() const noexcept { return resolve_calendar(clock_.now(), calendar_config_); }
     [[nodiscard]] const TemporalDomainRegistry& temporal_domains() const noexcept { return temporal_domains_; }
     [[nodiscard]] const EventCatalog& events() const noexcept { return events_; }
+    [[nodiscard]] const ClimateCatalog& climates() const noexcept { return climates_; }
+    [[nodiscard]] const WeatherLedger& weather() const noexcept { return weather_; }
     [[nodiscard]] const std::vector<WorldDelta>& history() const noexcept { return history_; }
 
     Result<EntityId> create_entity(EntityCreateInfo info);
@@ -59,6 +62,9 @@ public:
         return events_.resolve(calendar(), std::move(selector));
     }
 
+    Result<void> set_climate_profile(ClimateProfile profile);
+    Result<WeatherState> evolve_zone_weather(ZoneId zone, std::uint64_t entropy);
+
     Result<TransactionReceipt> execute(const WorldTransaction& transaction);
     [[nodiscard]] WorldSnapshot snapshot() const;
     [[nodiscard]] static Result<VersionedWorld> from_snapshot(const WorldSnapshot& snapshot);
@@ -72,6 +78,8 @@ private:
     CalendarConfig calendar_config_{};
     TemporalDomainRegistry temporal_domains_{};
     EventCatalog events_{};
+    ClimateCatalog climates_{};
+    WeatherLedger weather_{};
     WorldRevision revision_{};
     std::vector<WorldDelta> history_{};
 };

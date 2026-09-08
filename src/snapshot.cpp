@@ -1,5 +1,6 @@
 #include "home/snapshot.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -9,6 +10,12 @@ namespace home {
 namespace {
 Result<WorldSnapshot> parse_error(const char* message) {
     return Result<WorldSnapshot>::failure(ErrorCode::SerializationError, message);
+}
+
+bool snapshot_has_zone(const WorldSnapshot& snapshot, ZoneId zone) {
+    return std::any_of(snapshot.zones.begin(), snapshot.zones.end(), [&](const ZoneRecord& item) {
+        return item.id == zone;
+    });
 }
 } // namespace
 
@@ -24,6 +31,30 @@ Result<std::string> encode_snapshot(const WorldSnapshot& snapshot) {
     EventCatalog event_validation;
     for (const auto& event : snapshot.events) {
         const auto added = event_validation.add(event);
+        if (!added) return Result<std::string>::failure(added.error().code, added.error().message);
+    }
+
+    ClimateCatalog climate_validation;
+    for (const auto& climate : snapshot.climates) {
+        if (!snapshot_has_zone(snapshot, climate.zone)) {
+            return Result<std::string>::failure(ErrorCode::ValidationFailed, "snapshot climate references a missing zone");
+        }
+        if (climate_validation.find(climate.zone)) {
+            return Result<std::string>::failure(ErrorCode::AlreadyExists, "duplicate snapshot climate zone");
+        }
+        const auto added = climate_validation.set(climate);
+        if (!added) return Result<std::string>::failure(added.error().code, added.error().message);
+    }
+
+    WeatherLedger weather_validation;
+    for (const auto& state : snapshot.weather) {
+        if (!snapshot_has_zone(snapshot, state.zone) || !climate_validation.find(state.zone)) {
+            return Result<std::string>::failure(ErrorCode::ValidationFailed, "snapshot weather references a missing zone or climate");
+        }
+        if (weather_validation.find(state.zone)) {
+            return Result<std::string>::failure(ErrorCode::AlreadyExists, "duplicate snapshot weather zone");
+        }
+        const auto added = weather_validation.set(state);
         if (!added) return Result<std::string>::failure(added.error().code, added.error().message);
     }
 
@@ -43,6 +74,20 @@ Result<std::string> encode_snapshot(const WorldSnapshot& snapshot) {
             << std::quoted(event.key) << ' ' << std::quoted(event.display_name);
         for (const auto& affinity : event.affinities) out << ' ' << std::quoted(affinity);
         out << '\n';
+    }
+
+    out << "CLIMATES " << snapshot.climates.size() << '\n';
+    for (const auto& climate : snapshot.climates) {
+        out << "K " << climate.zone.value() << ' ' << climate.mean_temperature_millicelsius << ' '
+            << climate.wetness_permille << ' ' << climate.wind_permille << ' ' << climate.seed << '\n';
+    }
+
+    out << "WEATHER " << snapshot.weather.size() << '\n';
+    for (const auto& state : snapshot.weather) {
+        out << "W " << state.zone.value() << ' ' << static_cast<unsigned>(state.intensity) << ' '
+            << static_cast<unsigned>(state.previous_intensity) << ' ' << state.temperature_millicelsius << ' '
+            << state.cloud_permille << ' ' << state.precipitation_permille << ' ' << state.wind_mm_per_second << ' '
+            << state.sequence << ' ' << state.age_minutes << '\n';
     }
 
     out << "ENTITIES " << snapshot.entities.size() << '\n';
@@ -124,6 +169,44 @@ Result<WorldSnapshot> decode_snapshot(std::string_view encoded) {
         }
     }
 
+    if (format >= 5) {
+        if (!(in >> marker >> count) || marker != "CLIMATES") return parse_error("malformed climate section");
+        ClimateCatalog climate_validation;
+        for (std::size_t i = 0; i < count; ++i) {
+            std::uint64_t zone = 0, seed = 0;
+            int temperature = 0;
+            unsigned wetness = 0, wind = 0;
+            if (!(in >> marker >> zone >> temperature >> wetness >> wind >> seed) || marker != "K" || zone == 0) {
+                return parse_error("malformed climate record");
+            }
+            ClimateProfile climate{ZoneId{zone}, temperature, wetness, wind, seed};
+            if (climate_validation.find(climate.zone) || !climate_validation.set(climate)) {
+                return parse_error("invalid or duplicate climate record");
+            }
+            snapshot.climates.push_back(climate);
+        }
+
+        if (!(in >> marker >> count) || marker != "WEATHER") return parse_error("malformed weather section");
+        WeatherLedger weather_validation;
+        for (std::size_t i = 0; i < count; ++i) {
+            std::uint64_t zone = 0, sequence = 0;
+            unsigned intensity = 0, previous = 0, cloud = 0, precipitation = 0, wind = 0, age = 0;
+            int temperature = 0;
+            if (!(in >> marker >> zone >> intensity >> previous >> temperature >> cloud >> precipitation >> wind >> sequence >> age)
+                || marker != "W" || zone == 0
+                || intensity > static_cast<unsigned>(RainIntensity::Deluge)
+                || previous > static_cast<unsigned>(RainIntensity::Deluge)) {
+                return parse_error("malformed weather record");
+            }
+            WeatherState state{ZoneId{zone}, static_cast<RainIntensity>(intensity), static_cast<RainIntensity>(previous),
+                temperature, cloud, precipitation, wind, sequence, age};
+            if (weather_validation.find(state.zone) || !weather_validation.set(state)) {
+                return parse_error("invalid or duplicate weather record");
+            }
+            snapshot.weather.push_back(state);
+        }
+    }
+
     if (!(in >> marker >> count) || marker != "ENTITIES") return parse_error("malformed entity section");
     for (std::size_t i = 0; i < count; ++i) {
         std::uint64_t id = 0; unsigned kind = 0; int persistent = 0; EntityRecord e{};
@@ -156,6 +239,21 @@ Result<WorldSnapshot> decode_snapshot(std::string_view encoded) {
         snapshot.placements.push_back(SnapshotPlacement{EntityId{entity},ZoneId{zone}});
     }
     if (!(in >> marker) || marker!="END") return parse_error("snapshot missing END marker");
+
+    if (format >= 5) {
+        ClimateCatalog climate_validation;
+        for (const auto& climate : snapshot.climates) {
+            if (!snapshot_has_zone(snapshot, climate.zone) || climate_validation.find(climate.zone) || !climate_validation.set(climate)) {
+                return parse_error("snapshot climate references missing zone or is invalid");
+            }
+        }
+        for (const auto& state : snapshot.weather) {
+            if (!snapshot_has_zone(snapshot, state.zone) || !climate_validation.find(state.zone)) {
+                return parse_error("snapshot weather references missing zone or climate");
+            }
+        }
+    }
+
     return Result<WorldSnapshot>::success(std::move(snapshot));
 }
 

@@ -14,6 +14,8 @@ WorldSnapshot VersionedWorld::snapshot() const {
     out.clock_remainder = clock_.remainder();
     out.calendar_config = calendar_config_;
     out.events = events_.snapshot();
+    out.climates = climates_.snapshot();
+    out.weather = weather_.snapshot();
     out.entities = registry_.snapshot();
     out.zones = topology_.snapshot_zones();
     out.connections = topology_.snapshot_connections();
@@ -54,6 +56,29 @@ Result<VersionedWorld> VersionedWorld::from_snapshot(const WorldSnapshot& input)
             if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
         }
     }
+
+    for (const auto& climate : input.climates) {
+        if (!restored.topology_.contains(climate.zone)) {
+            return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot climate references a missing zone");
+        }
+        if (restored.climates_.find(climate.zone)) {
+            return Result<VersionedWorld>::failure(ErrorCode::AlreadyExists, "snapshot contains duplicate climate zone");
+        }
+        const auto result = restored.climates_.set(climate);
+        if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
+    }
+
+    for (const auto& state : input.weather) {
+        if (!restored.topology_.contains(state.zone) || !restored.climates_.find(state.zone)) {
+            return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot weather references a missing zone or climate");
+        }
+        if (restored.weather_.find(state.zone)) {
+            return Result<VersionedWorld>::failure(ErrorCode::AlreadyExists, "snapshot contains duplicate weather zone");
+        }
+        const auto result = restored.weather_.set(state);
+        if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
+    }
+
     for (const auto& entity : input.entities) {
         if (entity.world != input.world) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot contains a foreign entity");
         const auto result = restored.registry_.restore(entity);
