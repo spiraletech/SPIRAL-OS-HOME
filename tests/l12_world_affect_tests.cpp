@@ -107,7 +107,8 @@ int main() {
     // Advance one HOME day: Halloween is no longer active. Natural refresh clears the anchor.
     const auto next_day = world.advance_time(43'200'000);
     assert(next_day.ok());
-    assert(world.calendar().date == CalendarDate{2026, 11, 1});
+    const CalendarDate november_first{2026, 11, 1};
+    assert(world.calendar().date == november_first);
     const auto natural_november = world.refresh_world_context(zone.value());
     assert(natural_november.ok());
     assert(world.anchor().anchor == ThemeAnchor::None);
