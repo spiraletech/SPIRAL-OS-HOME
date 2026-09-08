@@ -67,18 +67,10 @@ Result<void> validate_household_state(
     const TopologyRegistry& topology,
     const PlayerLifeLedger& life,
     const HouseholdState& state) {
-    if (!state.id.valid()) {
-        return Result<void>::failure(ErrorCode::ValidationFailed, "household id must be valid");
-    }
-    if (state.name.empty()) {
-        return Result<void>::failure(ErrorCode::ValidationFailed, "household name must not be empty");
-    }
-    if (state.members.empty()) {
-        return Result<void>::failure(ErrorCode::ValidationFailed, "household must contain at least one member");
-    }
-    if (state.sequence == 0) {
-        return Result<void>::failure(ErrorCode::ValidationFailed, "household sequence must be nonzero");
-    }
+    if (!state.id.valid()) return Result<void>::failure(ErrorCode::ValidationFailed, "household id must be valid");
+    if (state.name.empty()) return Result<void>::failure(ErrorCode::ValidationFailed, "household name must not be empty");
+    if (state.members.empty()) return Result<void>::failure(ErrorCode::ValidationFailed, "household must contain at least one member");
+    if (state.sequence == 0) return Result<void>::failure(ErrorCode::ValidationFailed, "household sequence must be nonzero");
     if (state.home_zone.has_value() && !topology.contains(*state.home_zone)) {
         return Result<void>::failure(ErrorCode::NotFound, "household home zone does not exist");
     }
@@ -96,6 +88,24 @@ Result<void> validate_household_state(
     return Result<void>::success();
 }
 
+Result<void> RelationshipsLedger::restore_relationship(
+    const EntityRegistry& entities,
+    const PlayerLifeLedger& life,
+    RelationshipState state) {
+    const auto valid = validate_relationship_state(entities, life, state);
+    if (!valid) return valid;
+    if (find_relationship(state.from, state.to) != nullptr) {
+        return Result<void>::failure(ErrorCode::AlreadyExists, "relationship already exists");
+    }
+    const auto it = std::lower_bound(relationships_.begin(), relationships_.end(), state,
+        [](const RelationshipState& a, const RelationshipState& b) {
+            if (a.from != b.from) return a.from < b.from;
+            return a.to < b.to;
+        });
+    relationships_.insert(it, std::move(state));
+    return Result<void>::success();
+}
+
 Result<void> RelationshipsLedger::set_relationship(
     const EntityRegistry& entities,
     const PlayerLifeLedger& life,
@@ -108,21 +118,13 @@ Result<void> RelationshipsLedger::set_relationship(
             if (a.from != b.from) return a.from < b.from;
             return a.to < b.to;
         });
-
     if (it != relationships_.end() && it->from == state.from && it->to == state.to) {
-        if (state.sequence <= it->sequence) {
-            return Result<void>::failure(ErrorCode::RevisionConflict, "relationship sequence is stale");
-        }
-        if (state.updated_world_minute < it->updated_world_minute) {
-            return Result<void>::failure(ErrorCode::RevisionConflict, "relationship world minute regressed");
-        }
+        if (state.sequence <= it->sequence) return Result<void>::failure(ErrorCode::RevisionConflict, "relationship sequence is stale");
+        if (state.updated_world_minute < it->updated_world_minute) return Result<void>::failure(ErrorCode::RevisionConflict, "relationship world minute regressed");
         *it = std::move(state);
         return Result<void>::success();
     }
-
-    if (state.sequence != 1) {
-        return Result<void>::failure(ErrorCode::ValidationFailed, "new relationship must begin at sequence 1");
-    }
+    if (state.sequence != 1) return Result<void>::failure(ErrorCode::ValidationFailed, "new relationship must begin at sequence 1");
     relationships_.insert(it, std::move(state));
     return Result<void>::success();
 }
@@ -183,10 +185,27 @@ Result<HouseholdId> RelationshipsLedger::create_household(
         }
     }
     households_.push_back(std::move(state));
-    std::sort(households_.begin(), households_.end(), [](const HouseholdState& a, const HouseholdState& b) {
-        return a.id < b.id;
-    });
+    std::sort(households_.begin(), households_.end(), [](const HouseholdState& a, const HouseholdState& b) { return a.id < b.id; });
     return allocated;
+}
+
+Result<void> RelationshipsLedger::restore_household(
+    const EntityRegistry& entities,
+    const TopologyRegistry& topology,
+    const PlayerLifeLedger& life,
+    HouseholdState state) {
+    sort_members(state.members);
+    const auto valid = validate_household_state(entities, topology, life, state);
+    if (!valid) return valid;
+    if (find_household(state.id) != nullptr) return Result<void>::failure(ErrorCode::AlreadyExists, "household already exists");
+    for (const EntityId member : state.members) {
+        if (household_for(member) != nullptr) return Result<void>::failure(ErrorCode::AlreadyExists, "player already belongs to another household");
+    }
+    const auto it = std::lower_bound(households_.begin(), households_.end(), state.id,
+        [](const HouseholdState& household, HouseholdId id) { return household.id < id; });
+    households_.insert(it, state);
+    advance_allocator_past(state.id);
+    return Result<void>::success();
 }
 
 Result<void> RelationshipsLedger::set_household(
@@ -200,48 +219,32 @@ Result<void> RelationshipsLedger::set_household(
 
     const auto it = std::lower_bound(households_.begin(), households_.end(), state.id,
         [](const HouseholdState& household, HouseholdId id) { return household.id < id; });
-
+    if (it == households_.end() || it->id != state.id) {
+        return Result<void>::failure(ErrorCode::NotFound, "household not found");
+    }
     for (const EntityId member : state.members) {
         const HouseholdState* existing = household_for(member);
         if (existing != nullptr && existing->id != state.id) {
             return Result<void>::failure(ErrorCode::AlreadyExists, "player already belongs to another household");
         }
     }
-
-    if (it != households_.end() && it->id == state.id) {
-        if (state.sequence <= it->sequence) {
-            return Result<void>::failure(ErrorCode::RevisionConflict, "household sequence is stale");
-        }
-        if (state.updated_world_minute < it->updated_world_minute) {
-            return Result<void>::failure(ErrorCode::RevisionConflict, "household world minute regressed");
-        }
-        *it = std::move(state);
-        return Result<void>::success();
-    }
-
-    if (state.sequence != 1) {
-        return Result<void>::failure(ErrorCode::ValidationFailed, "restored household must begin at sequence 1 when not already present");
-    }
-    households_.insert(it, state);
-    advance_allocator_past(state.id);
+    if (state.sequence <= it->sequence) return Result<void>::failure(ErrorCode::RevisionConflict, "household sequence is stale");
+    if (state.updated_world_minute < it->updated_world_minute) return Result<void>::failure(ErrorCode::RevisionConflict, "household world minute regressed");
+    *it = std::move(state);
     return Result<void>::success();
 }
 
 Result<HouseholdState> RelationshipsLedger::dissolve_household(HouseholdId id) {
     const auto it = std::lower_bound(households_.begin(), households_.end(), id,
         [](const HouseholdState& household, HouseholdId value) { return household.id < value; });
-    if (it == households_.end() || it->id != id) {
-        return Result<HouseholdState>::failure(ErrorCode::NotFound, "household not found");
-    }
+    if (it == households_.end() || it->id != id) return Result<HouseholdState>::failure(ErrorCode::NotFound, "household not found");
     HouseholdState removed = *it;
     households_.erase(it);
     return Result<HouseholdState>::success(std::move(removed));
 }
 
-Result<SocialPurgeResult> RelationshipsLedger::purge_entity(EntityId entity) {
-    if (!entity.valid()) {
-        return Result<SocialPurgeResult>::failure(ErrorCode::InvalidArgument, "purged entity id must be valid");
-    }
+Result<SocialPurgeResult> RelationshipsLedger::purge_entity(EntityId entity, std::uint64_t updated_world_minute) {
+    if (!entity.valid()) return Result<SocialPurgeResult>::failure(ErrorCode::InvalidArgument, "purged entity id must be valid");
 
     SocialPurgeResult result{};
     for (auto it = relationships_.begin(); it != relationships_.end();) {
@@ -258,9 +261,7 @@ Result<SocialPurgeResult> RelationshipsLedger::purge_entity(EntityId entity) {
     });
     if (household_it != households_.end()) {
         result.household_before = *household_it;
-        household_it->members.erase(
-            std::remove(household_it->members.begin(), household_it->members.end(), entity),
-            household_it->members.end());
+        household_it->members.erase(std::remove(household_it->members.begin(), household_it->members.end(), entity), household_it->members.end());
         if (household_it->members.empty()) {
             households_.erase(household_it);
             result.household_after = std::nullopt;
@@ -269,6 +270,7 @@ Result<SocialPurgeResult> RelationshipsLedger::purge_entity(EntityId entity) {
                 return Result<SocialPurgeResult>::failure(ErrorCode::Overflow, "household sequence space exhausted");
             }
             ++household_it->sequence;
+            household_it->updated_world_minute = updated_world_minute;
             result.household_after = *household_it;
         }
     }
@@ -293,19 +295,12 @@ const HouseholdState* RelationshipsLedger::find_household(HouseholdId id) const 
 const HouseholdState* RelationshipsLedger::household_for(EntityId member) const noexcept {
     if (!member.valid()) return nullptr;
     for (const auto& household : households_) {
-        if (std::find(household.members.begin(), household.members.end(), member) != household.members.end()) {
-            return &household;
-        }
+        if (std::find(household.members.begin(), household.members.end(), member) != household.members.end()) return &household;
     }
     return nullptr;
 }
 
-std::vector<RelationshipState> RelationshipsLedger::relationship_snapshot() const {
-    return relationships_;
-}
-
-std::vector<HouseholdState> RelationshipsLedger::household_snapshot() const {
-    return households_;
-}
+std::vector<RelationshipState> RelationshipsLedger::relationship_snapshot() const { return relationships_; }
+std::vector<HouseholdState> RelationshipsLedger::household_snapshot() const { return households_; }
 
 } // namespace home
