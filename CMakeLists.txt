@@ -22,6 +22,7 @@ add_library(home_core
  src/player_life.cpp
  src/versioned_world_life.cpp
  src/needs_mood_autonomy.cpp
+ src/versioned_world_dynamics.cpp
 )
 add_library(HOME::Core ALIAS home_core)
 target_include_directories(home_core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
