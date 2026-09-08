@@ -8,6 +8,7 @@
 #include "home/topology.hpp"
 #include "home/transaction.hpp"
 #include "home/weather.hpp"
+#include "home/world_affect.hpp"
 #include "home/world_clock.hpp"
 #include "home/world_delta.hpp"
 
@@ -36,6 +37,8 @@ public:
     [[nodiscard]] const EventCatalog& events() const noexcept { return events_; }
     [[nodiscard]] const ClimateCatalog& climates() const noexcept { return climates_; }
     [[nodiscard]] const WeatherLedger& weather() const noexcept { return weather_; }
+    [[nodiscard]] const WorldAffectState& affect() const noexcept { return affect_; }
+    [[nodiscard]] const WorldAnchorState& anchor() const noexcept { return anchor_; }
     [[nodiscard]] const std::vector<WorldDelta>& history() const noexcept { return history_; }
 
     Result<EntityId> create_entity(EntityCreateInfo info);
@@ -64,6 +67,10 @@ public:
 
     Result<void> set_climate_profile(ClimateProfile profile);
     Result<WeatherState> evolve_zone_weather(ZoneId zone, std::uint64_t entropy);
+    Result<WorldContextState> refresh_world_context(
+        std::optional<ZoneId> weather_zone = std::nullopt,
+        EventSelector selector = {},
+        std::optional<WorldAnchorOverride> anchor_override = std::nullopt);
 
     Result<TransactionReceipt> execute(const WorldTransaction& transaction);
     [[nodiscard]] WorldSnapshot snapshot() const;
@@ -80,6 +87,8 @@ private:
     EventCatalog events_{};
     ClimateCatalog climates_{};
     WeatherLedger weather_{};
+    WorldAffectState affect_{};
+    WorldAnchorState anchor_{};
     WorldRevision revision_{};
     std::vector<WorldDelta> history_{};
 };
