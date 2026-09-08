@@ -58,6 +58,11 @@ Result<std::string> encode_snapshot(const WorldSnapshot& snapshot) {
         if (!added) return Result<std::string>::failure(added.error().code, added.error().message);
     }
 
+    const auto affect_valid = validate_world_affect_state(snapshot.affect);
+    if (!affect_valid) return Result<std::string>::failure(affect_valid.error().code, affect_valid.error().message);
+    const auto anchor_valid = validate_world_anchor_state(snapshot.anchor);
+    if (!anchor_valid) return Result<std::string>::failure(anchor_valid.error().code, anchor_valid.error().message);
+
     std::ostringstream out;
     out << "HOME_SNAPSHOT " << kSnapshotFormatVersion << '\n';
     out << "WORLD " << snapshot.world.value() << ' ' << snapshot.revision.value() << '\n';
@@ -89,6 +94,11 @@ Result<std::string> encode_snapshot(const WorldSnapshot& snapshot) {
             << state.cloud_permille << ' ' << state.precipitation_permille << ' ' << state.wind_mm_per_second << ' '
             << state.sequence << ' ' << state.age_minutes << '\n';
     }
+
+    out << "AFFECT " << static_cast<unsigned>(snapshot.affect.tone) << ' ' << snapshot.affect.valence_milli << ' '
+        << snapshot.affect.intensity_permille << ' ' << snapshot.affect.stability_permille << '\n';
+    out << "ANCHOR " << static_cast<unsigned>(snapshot.anchor.anchor) << ' ' << snapshot.anchor.strength_permille << ' '
+        << static_cast<unsigned>(snapshot.anchor.source) << ' ' << std::quoted(snapshot.anchor.authority) << '\n';
 
     out << "ENTITIES " << snapshot.entities.size() << '\n';
     for (const auto& e : snapshot.entities) {
@@ -205,6 +215,28 @@ Result<WorldSnapshot> decode_snapshot(std::string_view encoded) {
             }
             snapshot.weather.push_back(state);
         }
+    }
+
+    if (format >= 6) {
+        unsigned tone = 0, affect_intensity = 0, affect_stability = 0;
+        int valence = 0;
+        if (!(in >> marker >> tone >> valence >> affect_intensity >> affect_stability) || marker != "AFFECT"
+            || tone > static_cast<unsigned>(WorldTone::Dreamlike)) {
+            return parse_error("malformed world affect state");
+        }
+        snapshot.affect = WorldAffectState{static_cast<WorldTone>(tone), valence, affect_intensity, affect_stability};
+        if (!validate_world_affect_state(snapshot.affect)) return parse_error("invalid world affect state");
+
+        unsigned anchor = 0, strength = 0, source = 0;
+        std::string authority;
+        if (!(in >> marker >> anchor >> strength >> source >> std::quoted(authority)) || marker != "ANCHOR"
+            || anchor > static_cast<unsigned>(ThemeAnchor::HauntedHalloweenRain)
+            || source > static_cast<unsigned>(AnchorSource::AuthorizedOverride)) {
+            return parse_error("malformed world anchor state");
+        }
+        snapshot.anchor = WorldAnchorState{
+            static_cast<ThemeAnchor>(anchor), strength, static_cast<AnchorSource>(source), std::move(authority)};
+        if (!validate_world_anchor_state(snapshot.anchor)) return parse_error("invalid world anchor state");
     }
 
     if (!(in >> marker >> count) || marker != "ENTITIES") return parse_error("malformed entity section");
