@@ -1,6 +1,7 @@
 #pragma once
 
 #include "home/entity.hpp"
+#include "home/needs_mood_autonomy.hpp"
 #include "home/player_life.hpp"
 #include "home/revision.hpp"
 #include "home/topology.hpp"
@@ -29,7 +30,8 @@ enum class WorldChangeKind : std::uint8_t {
     WeatherStateChanged,
     WorldAffectChanged,
     WorldAnchorChanged,
-    PlayerLifeStateChanged
+    PlayerLifeStateChanged,
+    PlayerDynamicsStateChanged
 };
 
 struct EntityCreated final { EntityRecord entity{}; };
@@ -68,12 +70,16 @@ struct PlayerLifeStateChanged final {
     std::optional<PlayerLifeState> before{};
     std::optional<PlayerLifeState> after{};
 };
+struct PlayerDynamicsStateChanged final {
+    std::optional<PlayerDynamicsState> before{};
+    std::optional<PlayerDynamicsState> after{};
+};
 
 using WorldChangePayload = std::variant<
     EntityCreated, EntityRemoved, EntityTransformUpdated, ZoneCreated,
     ZoneParentChanged, ZonesConnected, EntityZoneChanged, WorldTimeAdvanced,
     ClimateProfileChanged, WeatherStateChanged, WorldAffectChanged, WorldAnchorChanged,
-    PlayerLifeStateChanged
+    PlayerLifeStateChanged, PlayerDynamicsStateChanged
 >;
 
 struct WorldChange final {
