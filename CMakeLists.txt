@@ -20,6 +20,7 @@ add_library(home_core
  src/world_affect.cpp
  src/versioned_world_affect.cpp
  src/player_life.cpp
+ src/versioned_world_life.cpp
  src/needs_mood_autonomy.cpp
 )
 add_library(HOME::Core ALIAS home_core)
