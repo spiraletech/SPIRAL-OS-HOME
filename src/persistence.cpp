@@ -20,6 +20,8 @@ WorldSnapshot VersionedWorld::snapshot() const {
     out.anchor = anchor_;
     out.player_life = player_life_.snapshot();
     out.player_dynamics = player_dynamics_.snapshot();
+    out.relationships = relationships_.relationship_snapshot();
+    out.households = relationships_.household_snapshot();
     out.entities = registry_.snapshot();
     out.zones = topology_.snapshot_zones();
     out.connections = topology_.snapshot_connections();
@@ -66,23 +68,14 @@ Result<VersionedWorld> VersionedWorld::from_snapshot(const WorldSnapshot& input)
     }
 
     for (const auto& climate : input.climates) {
-        if (!restored.topology_.contains(climate.zone)) {
-            return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot climate references a missing zone");
-        }
-        if (restored.climates_.find(climate.zone)) {
-            return Result<VersionedWorld>::failure(ErrorCode::AlreadyExists, "snapshot contains duplicate climate zone");
-        }
+        if (!restored.topology_.contains(climate.zone)) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot climate references a missing zone");
+        if (restored.climates_.find(climate.zone)) return Result<VersionedWorld>::failure(ErrorCode::AlreadyExists, "snapshot contains duplicate climate zone");
         const auto result = restored.climates_.set(climate);
         if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
     }
-
     for (const auto& state : input.weather) {
-        if (!restored.topology_.contains(state.zone) || !restored.climates_.find(state.zone)) {
-            return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot weather references a missing zone or climate");
-        }
-        if (restored.weather_.find(state.zone)) {
-            return Result<VersionedWorld>::failure(ErrorCode::AlreadyExists, "snapshot contains duplicate weather zone");
-        }
+        if (!restored.topology_.contains(state.zone) || !restored.climates_.find(state.zone)) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot weather references a missing zone or climate");
+        if (restored.weather_.find(state.zone)) return Result<VersionedWorld>::failure(ErrorCode::AlreadyExists, "snapshot contains duplicate weather zone");
         const auto result = restored.weather_.set(state);
         if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
     }
@@ -104,24 +97,27 @@ Result<VersionedWorld> VersionedWorld::from_snapshot(const WorldSnapshot& input)
 
     const std::uint64_t current_world_minute = input.world_time.milliseconds / 60000ULL;
     for (const auto& life : input.player_life) {
-        if (life.born_world_minute > current_world_minute || life.updated_world_minute > current_world_minute) {
-            return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot player life references a future HOME minute");
-        }
-        if (restored.player_life_.find(life.entity)) {
-            return Result<VersionedWorld>::failure(ErrorCode::AlreadyExists, "snapshot contains duplicate player life entity");
-        }
+        if (life.born_world_minute > current_world_minute || life.updated_world_minute > current_world_minute) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot player life references a future HOME minute");
+        if (restored.player_life_.find(life.entity)) return Result<VersionedWorld>::failure(ErrorCode::AlreadyExists, "snapshot contains duplicate player life entity");
         const auto result = restored.player_life_.set(restored.registry_, restored.topology_, life);
         if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
     }
 
     for (const auto& dynamics : input.player_dynamics) {
-        if (dynamics.updated_world_minute > current_world_minute) {
-            return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot player dynamics references a future HOME minute");
-        }
-        if (restored.player_dynamics_.find(dynamics.entity)) {
-            return Result<VersionedWorld>::failure(ErrorCode::AlreadyExists, "snapshot contains duplicate player dynamics entity");
-        }
+        if (dynamics.updated_world_minute > current_world_minute) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot player dynamics references a future HOME minute");
+        if (restored.player_dynamics_.find(dynamics.entity)) return Result<VersionedWorld>::failure(ErrorCode::AlreadyExists, "snapshot contains duplicate player dynamics entity");
         const auto result = restored.player_dynamics_.set(restored.registry_, restored.player_life_, dynamics);
+        if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
+    }
+
+    for (const auto& relationship : input.relationships) {
+        if (relationship.updated_world_minute > current_world_minute) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot relationship references a future HOME minute");
+        const auto result = restored.relationships_.restore_relationship(restored.registry_, restored.player_life_, relationship);
+        if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
+    }
+    for (const auto& household : input.households) {
+        if (household.updated_world_minute > current_world_minute) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot household references a future HOME minute");
+        const auto result = restored.relationships_.restore_household(restored.registry_, restored.topology_, restored.player_life_, household);
         if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
     }
 
