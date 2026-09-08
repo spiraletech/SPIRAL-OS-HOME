@@ -18,6 +18,7 @@ add_library(home_core
  src/events.cpp
  src/weather.cpp
  src/world_affect.cpp
+ src/versioned_world_affect.cpp
  src/player_life.cpp
  src/needs_mood_autonomy.cpp
 )
