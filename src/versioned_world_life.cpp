@@ -10,6 +10,13 @@ Result<void> VersionedWorld::set_player_life_state(PlayerLifeState state) {
         return Result<void>::failure(ErrorCode::ValidationFailed, "player life state may not reference a future HOME minute");
     }
 
+    if (state.presence == LifePresence::Deceased) {
+        if (const auto* dynamics = player_dynamics_.find(state.entity);
+            dynamics != nullptr && dynamics->autonomy.mode != AutonomyMode::Disabled) {
+            return Result<void>::failure(ErrorCode::ValidationFailed, "active autonomy must be disabled before player life can become deceased");
+        }
+    }
+
     std::optional<PlayerLifeState> before{};
     if (const auto* existing = player_life_.find(state.entity)) {
         before = *existing;

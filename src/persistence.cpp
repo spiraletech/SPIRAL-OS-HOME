@@ -19,6 +19,7 @@ WorldSnapshot VersionedWorld::snapshot() const {
     out.affect = affect_;
     out.anchor = anchor_;
     out.player_life = player_life_.snapshot();
+    out.player_dynamics = player_dynamics_.snapshot();
     out.entities = registry_.snapshot();
     out.zones = topology_.snapshot_zones();
     out.connections = topology_.snapshot_connections();
@@ -110,6 +111,17 @@ Result<VersionedWorld> VersionedWorld::from_snapshot(const WorldSnapshot& input)
             return Result<VersionedWorld>::failure(ErrorCode::AlreadyExists, "snapshot contains duplicate player life entity");
         }
         const auto result = restored.player_life_.set(restored.registry_, restored.topology_, life);
+        if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
+    }
+
+    for (const auto& dynamics : input.player_dynamics) {
+        if (dynamics.updated_world_minute > current_world_minute) {
+            return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot player dynamics references a future HOME minute");
+        }
+        if (restored.player_dynamics_.find(dynamics.entity)) {
+            return Result<VersionedWorld>::failure(ErrorCode::AlreadyExists, "snapshot contains duplicate player dynamics entity");
+        }
+        const auto result = restored.player_dynamics_.set(restored.registry_, restored.player_life_, dynamics);
         if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
     }
 

@@ -3,6 +3,7 @@
 #include "home/calendar.hpp"
 #include "home/entity_registry.hpp"
 #include "home/events.hpp"
+#include "home/needs_mood_autonomy.hpp"
 #include "home/player_life.hpp"
 #include "home/snapshot.hpp"
 #include "home/temporal_domain.hpp"
@@ -41,6 +42,7 @@ public:
     [[nodiscard]] const WorldAffectState& affect() const noexcept { return affect_; }
     [[nodiscard]] const WorldAnchorState& anchor() const noexcept { return anchor_; }
     [[nodiscard]] const PlayerLifeLedger& player_life() const noexcept { return player_life_; }
+    [[nodiscard]] const PlayerDynamicsLedger& player_dynamics() const noexcept { return player_dynamics_; }
     [[nodiscard]] const std::vector<WorldDelta>& history() const noexcept { return history_; }
 
     Result<EntityId> create_entity(EntityCreateInfo info);
@@ -74,6 +76,8 @@ public:
         std::optional<WorldAnchorOverride> anchor_override = std::nullopt);
 
     Result<void> set_player_life_state(PlayerLifeState state);
+    Result<void> set_player_dynamics_state(PlayerDynamicsState state);
+    [[nodiscard]] Result<AutonomyDecision> resolve_player_autonomy(EntityId entity) const;
 
     Result<TransactionReceipt> execute(const WorldTransaction& transaction);
     [[nodiscard]] WorldSnapshot snapshot() const;
@@ -93,6 +97,7 @@ private:
     WorldAffectState affect_{};
     WorldAnchorState anchor_{};
     PlayerLifeLedger player_life_{};
+    PlayerDynamicsLedger player_dynamics_{};
     WorldRevision revision_{};
     std::vector<WorldDelta> history_{};
 };
