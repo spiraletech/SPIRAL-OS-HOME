@@ -5,6 +5,7 @@
 #include "home/events.hpp"
 #include "home/needs_mood_autonomy.hpp"
 #include "home/player_life.hpp"
+#include "home/relationships.hpp"
 #include "home/result.hpp"
 #include "home/revision.hpp"
 #include "home/topology.hpp"
@@ -40,13 +41,15 @@ struct WorldSnapshot final {
     WorldAnchorState anchor{};
     std::vector<PlayerLifeState> player_life{};
     std::vector<PlayerDynamicsState> player_dynamics{};
+    std::vector<RelationshipState> relationships{};
+    std::vector<HouseholdState> households{};
     std::vector<EntityRecord> entities{};
     std::vector<ZoneRecord> zones{};
     std::vector<ZoneConnection> connections{};
     std::vector<SnapshotPlacement> placements{};
 };
 
-inline constexpr std::uint32_t kSnapshotFormatVersion = 8;
+inline constexpr std::uint32_t kSnapshotFormatVersion = 9;
 
 Result<std::string> encode_snapshot(const WorldSnapshot& snapshot);
 Result<WorldSnapshot> decode_snapshot(std::string_view encoded);

@@ -3,6 +3,7 @@
 #include "home/entity.hpp"
 #include "home/needs_mood_autonomy.hpp"
 #include "home/player_life.hpp"
+#include "home/relationships.hpp"
 #include "home/revision.hpp"
 #include "home/topology.hpp"
 #include "home/weather.hpp"
@@ -31,7 +32,9 @@ enum class WorldChangeKind : std::uint8_t {
     WorldAffectChanged,
     WorldAnchorChanged,
     PlayerLifeStateChanged,
-    PlayerDynamicsStateChanged
+    PlayerDynamicsStateChanged,
+    RelationshipStateChanged,
+    HouseholdStateChanged
 };
 
 struct EntityCreated final { EntityRecord entity{}; };
@@ -41,45 +44,21 @@ struct ZoneCreated final { ZoneRecord zone{}; };
 struct ZoneParentChanged final { ZoneId zone{}; std::optional<ZoneId> before{}; std::optional<ZoneId> after{}; };
 struct ZonesConnected final { ZoneConnection connection{}; };
 struct EntityZoneChanged final { EntityId entity{}; std::optional<ZoneId> before{}; std::optional<ZoneId> after{}; };
-struct WorldTimeAdvanced final {
-    WorldTime before{};
-    WorldTime after{};
-    std::uint64_t real_milliseconds{};
-    std::uint64_t before_remainder{};
-    std::uint64_t after_remainder{};
-};
-struct ClimateProfileChanged final {
-    std::optional<ClimateProfile> before{};
-    ClimateProfile after{};
-};
-struct WeatherStateChanged final {
-    std::optional<WeatherState> before{};
-    WeatherState after{};
-    Season season{Season::Winter};
-    std::uint64_t entropy{};
-};
-struct WorldAffectChanged final {
-    WorldAffectState before{};
-    WorldAffectState after{};
-};
-struct WorldAnchorChanged final {
-    WorldAnchorState before{};
-    WorldAnchorState after{};
-};
-struct PlayerLifeStateChanged final {
-    std::optional<PlayerLifeState> before{};
-    std::optional<PlayerLifeState> after{};
-};
-struct PlayerDynamicsStateChanged final {
-    std::optional<PlayerDynamicsState> before{};
-    std::optional<PlayerDynamicsState> after{};
-};
+struct WorldTimeAdvanced final { WorldTime before{}; WorldTime after{}; std::uint64_t real_milliseconds{}; std::uint64_t before_remainder{}; std::uint64_t after_remainder{}; };
+struct ClimateProfileChanged final { std::optional<ClimateProfile> before{}; ClimateProfile after{}; };
+struct WeatherStateChanged final { std::optional<WeatherState> before{}; WeatherState after{}; Season season{Season::Winter}; std::uint64_t entropy{}; };
+struct WorldAffectChanged final { WorldAffectState before{}; WorldAffectState after{}; };
+struct WorldAnchorChanged final { WorldAnchorState before{}; WorldAnchorState after{}; };
+struct PlayerLifeStateChanged final { std::optional<PlayerLifeState> before{}; std::optional<PlayerLifeState> after{}; };
+struct PlayerDynamicsStateChanged final { std::optional<PlayerDynamicsState> before{}; std::optional<PlayerDynamicsState> after{}; };
+struct RelationshipStateChanged final { std::optional<RelationshipState> before{}; std::optional<RelationshipState> after{}; };
+struct HouseholdStateChanged final { std::optional<HouseholdState> before{}; std::optional<HouseholdState> after{}; };
 
 using WorldChangePayload = std::variant<
     EntityCreated, EntityRemoved, EntityTransformUpdated, ZoneCreated,
     ZoneParentChanged, ZonesConnected, EntityZoneChanged, WorldTimeAdvanced,
     ClimateProfileChanged, WeatherStateChanged, WorldAffectChanged, WorldAnchorChanged,
-    PlayerLifeStateChanged, PlayerDynamicsStateChanged
+    PlayerLifeStateChanged, PlayerDynamicsStateChanged, RelationshipStateChanged, HouseholdStateChanged
 >;
 
 struct WorldChange final {
