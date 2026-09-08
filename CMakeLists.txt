@@ -23,6 +23,8 @@ add_library(home_core
  src/versioned_world_life.cpp
  src/needs_mood_autonomy.cpp
  src/versioned_world_dynamics.cpp
+ src/relationships.cpp
+ src/versioned_world_social.cpp
 )
 add_library(HOME::Core ALIAS home_core)
 target_include_directories(home_core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
@@ -58,4 +60,5 @@ if(HOME_BUILD_TESTS)
  home_add_test(12 l12_world_affect_tests.cpp home.l12.world_affect)
  home_add_test(13 l13_player_life_tests.cpp home.l13.player_life)
  home_add_test(14 l14_needs_mood_autonomy_tests.cpp home.l14.needs_mood_autonomy)
+ home_add_test(15 l15_relationships_households_tests.cpp home.l15.relationships_households)
 endif()
