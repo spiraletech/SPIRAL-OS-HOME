@@ -32,12 +32,34 @@ Result<void> VersionedWorld::restore_entity(EntityRecord record) {
 }
 
 Result<EntityRecord> VersionedWorld::remove_entity(EntityId id) {
-    const auto prior = topology_.zone_of(id); const auto removed = registry_.remove(id); if (!removed) return removed;
+    const auto prior = topology_.zone_of(id);
+    std::optional<PlayerLifeState> prior_life{};
+    if (const auto* life = player_life_.find(id)) prior_life = *life;
+
+    const auto removed = registry_.remove(id); if (!removed) return removed;
     EntityRecord record = removed.value(); std::vector<WorldChange> changes;
-    if (prior) { const auto cleared = topology_.clear_entity(id); if (!cleared) { registry_.restore(record); return Result<EntityRecord>::failure(cleared.error().code, cleared.error().message); }
-        changes.push_back({WorldChangeKind::EntityZoneChanged, EntityZoneChanged{id, prior, std::nullopt}}); }
+    if (prior) {
+        const auto cleared = topology_.clear_entity(id);
+        if (!cleared) { registry_.restore(record); return Result<EntityRecord>::failure(cleared.error().code, cleared.error().message); }
+        changes.push_back({WorldChangeKind::EntityZoneChanged, EntityZoneChanged{id, prior, std::nullopt}});
+    }
+    if (prior_life.has_value()) {
+        const auto life_removed = player_life_.remove(id);
+        if (!life_removed) {
+            registry_.restore(record);
+            if (prior) topology_.place_entity(id, *prior);
+            return Result<EntityRecord>::failure(life_removed.error().code, life_removed.error().message);
+        }
+        changes.push_back({WorldChangeKind::PlayerLifeStateChanged, PlayerLifeStateChanged{prior_life, std::nullopt}});
+    }
     changes.push_back({WorldChangeKind::EntityRemoved, EntityRemoved{record}});
-    const auto c = commit(std::move(changes)); if (!c) { registry_.restore(record); if (prior) topology_.place_entity(id,*prior); return Result<EntityRecord>::failure(c.error().code,c.error().message); }
+    const auto c = commit(std::move(changes));
+    if (!c) {
+        registry_.restore(record);
+        if (prior) topology_.place_entity(id, *prior);
+        if (prior_life) player_life_.set(registry_, topology_, *prior_life);
+        return Result<EntityRecord>::failure(c.error().code,c.error().message);
+    }
     return Result<EntityRecord>::success(std::move(record));
 }
 
@@ -65,7 +87,9 @@ Result<TransactionReceipt> VersionedWorld::execute(const WorldTransaction& tx) {
     if (tx.expected_revision != revision_) return Result<TransactionReceipt>::failure(ErrorCode::RevisionConflict,"transaction expected revision does not match canonical revision");
     if (tx.operations.empty()) return Result<TransactionReceipt>::failure(ErrorCode::ValidationFailed,"transaction must contain operations");
 
-    EntityRegistry staged_registry = registry_; TopologyRegistry staged_topology = topology_;
+    EntityRegistry staged_registry = registry_;
+    TopologyRegistry staged_topology = topology_;
+    PlayerLifeLedger staged_life = player_life_;
     std::vector<WorldChange> changes; TransactionReceipt receipt{tx.id, revision_, revision_, {}, {}};
 
     for (const auto& op : tx.operations) {
@@ -75,7 +99,13 @@ Result<TransactionReceipt> VersionedWorld::execute(const WorldTransaction& tx) {
             if constexpr (std::is_same_v<T, TxCreateEntity>) {
                 auto r=staged_registry.create(command.info); if(!r){status=Result<void>::failure(r.error().code,r.error().message);return;} const auto* rec=staged_registry.find(r.value()); receipt.created_entities.push_back(r.value()); changes.push_back({WorldChangeKind::EntityCreated,EntityCreated{*rec}});
             } else if constexpr (std::is_same_v<T, TxRemoveEntity>) {
-                const auto prior=staged_topology.zone_of(command.id); auto r=staged_registry.remove(command.id); if(!r){status=Result<void>::failure(r.error().code,r.error().message);return;} if(prior){staged_topology.clear_entity(command.id);changes.push_back({WorldChangeKind::EntityZoneChanged,EntityZoneChanged{command.id,prior,std::nullopt}});} changes.push_back({WorldChangeKind::EntityRemoved,EntityRemoved{r.value()}});
+                const auto prior=staged_topology.zone_of(command.id);
+                std::optional<PlayerLifeState> prior_life{};
+                if (const auto* life = staged_life.find(command.id)) prior_life = *life;
+                auto r=staged_registry.remove(command.id); if(!r){status=Result<void>::failure(r.error().code,r.error().message);return;}
+                if(prior){staged_topology.clear_entity(command.id);changes.push_back({WorldChangeKind::EntityZoneChanged,EntityZoneChanged{command.id,prior,std::nullopt}});}
+                if(prior_life){const auto removed_life=staged_life.remove(command.id);if(!removed_life){status=Result<void>::failure(removed_life.error().code,removed_life.error().message);return;}changes.push_back({WorldChangeKind::PlayerLifeStateChanged,PlayerLifeStateChanged{prior_life,std::nullopt}});}
+                changes.push_back({WorldChangeKind::EntityRemoved,EntityRemoved{r.value()}});
             } else if constexpr (std::is_same_v<T, TxUpdateTransform>) {
                 auto* rec=staged_registry.find_mutable(command.id); if(!rec){status=Result<void>::failure(ErrorCode::NotFound,"entity not found");return;} if(rec->transform==command.transform){status=Result<void>::failure(ErrorCode::ValidationFailed,"transform update produced no state change");return;} const auto before=rec->transform;rec->transform=command.transform;changes.push_back({WorldChangeKind::EntityTransformUpdated,EntityTransformUpdated{command.id,before,command.transform}});
             } else if constexpr (std::is_same_v<T, TxCreateZone>) {
@@ -92,7 +122,7 @@ Result<TransactionReceipt> VersionedWorld::execute(const WorldTransaction& tx) {
     }
 
     const auto next=revision_.next(); if(!next) return Result<TransactionReceipt>::failure(ErrorCode::Overflow,"world revision space exhausted");
-    registry_=std::move(staged_registry); topology_=std::move(staged_topology); const WorldRevision from=revision_; revision_=*next; history_.emplace_back(from,revision_,std::move(changes)); receipt.to_revision=revision_;
+    registry_=std::move(staged_registry); topology_=std::move(staged_topology); player_life_=std::move(staged_life); const WorldRevision from=revision_; revision_=*next; history_.emplace_back(from,revision_,std::move(changes)); receipt.to_revision=revision_;
     return Result<TransactionReceipt>::success(std::move(receipt));
 }
 
