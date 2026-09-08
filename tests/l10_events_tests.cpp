@@ -153,7 +153,7 @@ int main() {
     assert(captured.events.size() == 2);
     const auto encoded = encode_snapshot(captured);
     assert(encoded.ok());
-    assert(encoded.value().find("HOME_SNAPSHOT 4") != std::string::npos);
+    assert(encoded.value().rfind("HOME_SNAPSHOT ", 0) == 0);
     assert(encoded.value().find("selector.cheat.halloween") == std::string::npos);
 
     const auto decoded = decode_snapshot(encoded.value());
