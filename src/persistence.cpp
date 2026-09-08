@@ -16,6 +16,8 @@ WorldSnapshot VersionedWorld::snapshot() const {
     out.events = events_.snapshot();
     out.climates = climates_.snapshot();
     out.weather = weather_.snapshot();
+    out.affect = affect_;
+    out.anchor = anchor_;
     out.entities = registry_.snapshot();
     out.zones = topology_.snapshot_zones();
     out.connections = topology_.snapshot_connections();
@@ -33,6 +35,10 @@ Result<VersionedWorld> VersionedWorld::from_snapshot(const WorldSnapshot& input)
     if (!input.world.valid()) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot world id is invalid");
     if (input.clock_config.real_milliseconds_per_home_minute == 0) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot clock configuration is invalid");
     if (!valid_calendar_date(input.calendar_config.epoch)) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot calendar configuration is invalid");
+    const auto affect_valid = validate_world_affect_state(input.affect);
+    if (!affect_valid) return Result<VersionedWorld>::failure(affect_valid.error().code, affect_valid.error().message);
+    const auto anchor_valid = validate_world_anchor_state(input.anchor);
+    if (!anchor_valid) return Result<VersionedWorld>::failure(anchor_valid.error().code, anchor_valid.error().message);
 
     VersionedWorld restored{input.world, input.clock_config, input.calendar_config};
     const auto clock_restore = restored.clock_.restore(input.world_time, input.clock_remainder);
@@ -94,6 +100,8 @@ Result<VersionedWorld> VersionedWorld::from_snapshot(const WorldSnapshot& input)
         if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
     }
 
+    restored.affect_ = input.affect;
+    restored.anchor_ = input.anchor;
     restored.revision_ = input.revision;
     restored.history_.clear();
     return Result<VersionedWorld>::success(std::move(restored));
