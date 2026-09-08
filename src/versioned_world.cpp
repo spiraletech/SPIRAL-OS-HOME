@@ -34,7 +34,9 @@ Result<void> VersionedWorld::restore_entity(EntityRecord record) {
 Result<EntityRecord> VersionedWorld::remove_entity(EntityId id) {
     const auto prior = topology_.zone_of(id);
     std::optional<PlayerLifeState> prior_life{};
+    std::optional<PlayerDynamicsState> prior_dynamics{};
     if (const auto* life = player_life_.find(id)) prior_life = *life;
+    if (const auto* dynamics = player_dynamics_.find(id)) prior_dynamics = *dynamics;
 
     const auto removed = registry_.remove(id); if (!removed) return removed;
     EntityRecord record = removed.value(); std::vector<WorldChange> changes;
@@ -43,11 +45,21 @@ Result<EntityRecord> VersionedWorld::remove_entity(EntityId id) {
         if (!cleared) { registry_.restore(record); return Result<EntityRecord>::failure(cleared.error().code, cleared.error().message); }
         changes.push_back({WorldChangeKind::EntityZoneChanged, EntityZoneChanged{id, prior, std::nullopt}});
     }
+    if (prior_dynamics.has_value()) {
+        const auto dynamics_removed = player_dynamics_.remove(id);
+        if (!dynamics_removed) {
+            registry_.restore(record);
+            if (prior) topology_.place_entity(id, *prior);
+            return Result<EntityRecord>::failure(dynamics_removed.error().code, dynamics_removed.error().message);
+        }
+        changes.push_back({WorldChangeKind::PlayerDynamicsStateChanged, PlayerDynamicsStateChanged{prior_dynamics, std::nullopt}});
+    }
     if (prior_life.has_value()) {
         const auto life_removed = player_life_.remove(id);
         if (!life_removed) {
             registry_.restore(record);
             if (prior) topology_.place_entity(id, *prior);
+            if (prior_dynamics) player_dynamics_.set(registry_, player_life_, *prior_dynamics);
             return Result<EntityRecord>::failure(life_removed.error().code, life_removed.error().message);
         }
         changes.push_back({WorldChangeKind::PlayerLifeStateChanged, PlayerLifeStateChanged{prior_life, std::nullopt}});
@@ -58,6 +70,7 @@ Result<EntityRecord> VersionedWorld::remove_entity(EntityId id) {
         registry_.restore(record);
         if (prior) topology_.place_entity(id, *prior);
         if (prior_life) player_life_.set(registry_, topology_, *prior_life);
+        if (prior_dynamics) player_dynamics_.set(registry_, player_life_, *prior_dynamics);
         return Result<EntityRecord>::failure(c.error().code,c.error().message);
     }
     return Result<EntityRecord>::success(std::move(record));
@@ -90,6 +103,7 @@ Result<TransactionReceipt> VersionedWorld::execute(const WorldTransaction& tx) {
     EntityRegistry staged_registry = registry_;
     TopologyRegistry staged_topology = topology_;
     PlayerLifeLedger staged_life = player_life_;
+    PlayerDynamicsLedger staged_dynamics = player_dynamics_;
     std::vector<WorldChange> changes; TransactionReceipt receipt{tx.id, revision_, revision_, {}, {}};
 
     for (const auto& op : tx.operations) {
@@ -101,9 +115,12 @@ Result<TransactionReceipt> VersionedWorld::execute(const WorldTransaction& tx) {
             } else if constexpr (std::is_same_v<T, TxRemoveEntity>) {
                 const auto prior=staged_topology.zone_of(command.id);
                 std::optional<PlayerLifeState> prior_life{};
+                std::optional<PlayerDynamicsState> prior_dynamics{};
                 if (const auto* life = staged_life.find(command.id)) prior_life = *life;
+                if (const auto* dynamics = staged_dynamics.find(command.id)) prior_dynamics = *dynamics;
                 auto r=staged_registry.remove(command.id); if(!r){status=Result<void>::failure(r.error().code,r.error().message);return;}
                 if(prior){staged_topology.clear_entity(command.id);changes.push_back({WorldChangeKind::EntityZoneChanged,EntityZoneChanged{command.id,prior,std::nullopt}});}
+                if(prior_dynamics){const auto removed_dynamics=staged_dynamics.remove(command.id);if(!removed_dynamics){status=Result<void>::failure(removed_dynamics.error().code,removed_dynamics.error().message);return;}changes.push_back({WorldChangeKind::PlayerDynamicsStateChanged,PlayerDynamicsStateChanged{prior_dynamics,std::nullopt}});}
                 if(prior_life){const auto removed_life=staged_life.remove(command.id);if(!removed_life){status=Result<void>::failure(removed_life.error().code,removed_life.error().message);return;}changes.push_back({WorldChangeKind::PlayerLifeStateChanged,PlayerLifeStateChanged{prior_life,std::nullopt}});}
                 changes.push_back({WorldChangeKind::EntityRemoved,EntityRemoved{r.value()}});
             } else if constexpr (std::is_same_v<T, TxUpdateTransform>) {
@@ -122,7 +139,7 @@ Result<TransactionReceipt> VersionedWorld::execute(const WorldTransaction& tx) {
     }
 
     const auto next=revision_.next(); if(!next) return Result<TransactionReceipt>::failure(ErrorCode::Overflow,"world revision space exhausted");
-    registry_=std::move(staged_registry); topology_=std::move(staged_topology); player_life_=std::move(staged_life); const WorldRevision from=revision_; revision_=*next; history_.emplace_back(from,revision_,std::move(changes)); receipt.to_revision=revision_;
+    registry_=std::move(staged_registry); topology_=std::move(staged_topology); player_life_=std::move(staged_life); player_dynamics_=std::move(staged_dynamics); const WorldRevision from=revision_; revision_=*next; history_.emplace_back(from,revision_,std::move(changes)); receipt.to_revision=revision_;
     return Result<TransactionReceipt>::success(std::move(receipt));
 }
 
