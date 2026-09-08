@@ -17,6 +17,21 @@ bool snapshot_has_zone(const WorldSnapshot& snapshot, ZoneId zone) {
         return item.id == zone;
     });
 }
+
+const EntityRecord* snapshot_find_entity(const WorldSnapshot& snapshot, EntityId entity) {
+    const auto it = std::find_if(snapshot.entities.begin(), snapshot.entities.end(), [&](const EntityRecord& item) {
+        return item.id == entity;
+    });
+    return it == snapshot.entities.end() ? nullptr : &*it;
+}
+
+bool valid_player_life_shape(const PlayerLifeState& state) {
+    return state.entity.valid()
+        && static_cast<unsigned>(state.stage) <= static_cast<unsigned>(LifeStage::Elder)
+        && static_cast<unsigned>(state.presence) <= static_cast<unsigned>(LifePresence::Deceased)
+        && state.updated_world_minute >= state.born_world_minute
+        && state.sequence != 0;
+}
 } // namespace
 
 Result<std::string> encode_snapshot(const WorldSnapshot& snapshot) {
@@ -63,6 +78,28 @@ Result<std::string> encode_snapshot(const WorldSnapshot& snapshot) {
     const auto anchor_valid = validate_world_anchor_state(snapshot.anchor);
     if (!anchor_valid) return Result<std::string>::failure(anchor_valid.error().code, anchor_valid.error().message);
 
+    const std::uint64_t current_world_minute = snapshot.world_time.milliseconds / 60000ULL;
+    std::vector<EntityId> life_entities;
+    for (const auto& life : snapshot.player_life) {
+        if (!valid_player_life_shape(life)) {
+            return Result<std::string>::failure(ErrorCode::ValidationFailed, "snapshot player life state is invalid");
+        }
+        if (life.born_world_minute > current_world_minute || life.updated_world_minute > current_world_minute) {
+            return Result<std::string>::failure(ErrorCode::ValidationFailed, "snapshot player life references a future HOME minute");
+        }
+        if (std::find(life_entities.begin(), life_entities.end(), life.entity) != life_entities.end()) {
+            return Result<std::string>::failure(ErrorCode::AlreadyExists, "duplicate snapshot player life entity");
+        }
+        life_entities.push_back(life.entity);
+        const EntityRecord* entity = snapshot_find_entity(snapshot, life.entity);
+        if (entity == nullptr || entity->kind != EntityKind::Avatar) {
+            return Result<std::string>::failure(ErrorCode::ValidationFailed, "snapshot player life references a missing or non-avatar entity");
+        }
+        if (life.home_zone.has_value() && !snapshot_has_zone(snapshot, *life.home_zone)) {
+            return Result<std::string>::failure(ErrorCode::ValidationFailed, "snapshot player life references a missing home zone");
+        }
+    }
+
     std::ostringstream out;
     out << "HOME_SNAPSHOT " << kSnapshotFormatVersion << '\n';
     out << "WORLD " << snapshot.world.value() << ' ' << snapshot.revision.value() << '\n';
@@ -99,6 +136,13 @@ Result<std::string> encode_snapshot(const WorldSnapshot& snapshot) {
         << snapshot.affect.intensity_permille << ' ' << snapshot.affect.stability_permille << '\n';
     out << "ANCHOR " << static_cast<unsigned>(snapshot.anchor.anchor) << ' ' << snapshot.anchor.strength_permille << ' '
         << static_cast<unsigned>(snapshot.anchor.source) << ' ' << std::quoted(snapshot.anchor.authority) << '\n';
+
+    out << "LIFE " << snapshot.player_life.size() << '\n';
+    for (const auto& life : snapshot.player_life) {
+        out << "L " << life.entity.value() << ' ' << static_cast<unsigned>(life.stage) << ' '
+            << static_cast<unsigned>(life.presence) << ' ' << (life.home_zone ? life.home_zone->value() : 0) << ' '
+            << life.born_world_minute << ' ' << life.updated_world_minute << ' ' << life.sequence << '\n';
+    }
 
     out << "ENTITIES " << snapshot.entities.size() << '\n';
     for (const auto& e : snapshot.entities) {
@@ -239,6 +283,33 @@ Result<WorldSnapshot> decode_snapshot(std::string_view encoded) {
         if (!validate_world_anchor_state(snapshot.anchor)) return parse_error("invalid world anchor state");
     }
 
+    if (format >= 7) {
+        if (!(in >> marker >> count) || marker != "LIFE") return parse_error("malformed player life section");
+        for (std::size_t i = 0; i < count; ++i) {
+            std::uint64_t entity = 0, home_zone = 0, born = 0, updated = 0, sequence = 0;
+            unsigned stage = 0, presence = 0;
+            if (!(in >> marker >> entity >> stage >> presence >> home_zone >> born >> updated >> sequence)
+                || marker != "L" || entity == 0
+                || stage > static_cast<unsigned>(LifeStage::Elder)
+                || presence > static_cast<unsigned>(LifePresence::Deceased)
+                || sequence == 0 || updated < born) {
+                return parse_error("malformed player life record");
+            }
+            PlayerLifeState life{};
+            life.entity = EntityId{entity};
+            life.stage = static_cast<LifeStage>(stage);
+            life.presence = static_cast<LifePresence>(presence);
+            if (home_zone != 0) life.home_zone = ZoneId{home_zone};
+            life.born_world_minute = born;
+            life.updated_world_minute = updated;
+            life.sequence = sequence;
+            if (std::any_of(snapshot.player_life.begin(), snapshot.player_life.end(), [&](const PlayerLifeState& existing) { return existing.entity == life.entity; })) {
+                return parse_error("duplicate player life entity");
+            }
+            snapshot.player_life.push_back(life);
+        }
+    }
+
     if (!(in >> marker >> count) || marker != "ENTITIES") return parse_error("malformed entity section");
     for (std::size_t i = 0; i < count; ++i) {
         std::uint64_t id = 0; unsigned kind = 0; int persistent = 0; EntityRecord e{};
@@ -282,6 +353,22 @@ Result<WorldSnapshot> decode_snapshot(std::string_view encoded) {
         for (const auto& state : snapshot.weather) {
             if (!snapshot_has_zone(snapshot, state.zone) || !climate_validation.find(state.zone)) {
                 return parse_error("snapshot weather references missing zone or climate");
+            }
+        }
+    }
+
+    if (format >= 7) {
+        const std::uint64_t current_world_minute = snapshot.world_time.milliseconds / 60000ULL;
+        for (const auto& life : snapshot.player_life) {
+            const EntityRecord* entity = snapshot_find_entity(snapshot, life.entity);
+            if (entity == nullptr || entity->kind != EntityKind::Avatar) {
+                return parse_error("snapshot player life references a missing or non-avatar entity");
+            }
+            if (life.home_zone.has_value() && !snapshot_has_zone(snapshot, *life.home_zone)) {
+                return parse_error("snapshot player life references a missing home zone");
+            }
+            if (life.born_world_minute > current_world_minute || life.updated_world_minute > current_world_minute) {
+                return parse_error("snapshot player life references a future HOME minute");
             }
         }
     }

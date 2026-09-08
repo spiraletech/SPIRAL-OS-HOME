@@ -3,6 +3,7 @@
 #include "home/calendar.hpp"
 #include "home/entity_registry.hpp"
 #include "home/events.hpp"
+#include "home/player_life.hpp"
 #include "home/snapshot.hpp"
 #include "home/temporal_domain.hpp"
 #include "home/topology.hpp"
@@ -39,6 +40,7 @@ public:
     [[nodiscard]] const WeatherLedger& weather() const noexcept { return weather_; }
     [[nodiscard]] const WorldAffectState& affect() const noexcept { return affect_; }
     [[nodiscard]] const WorldAnchorState& anchor() const noexcept { return anchor_; }
+    [[nodiscard]] const PlayerLifeLedger& player_life() const noexcept { return player_life_; }
     [[nodiscard]] const std::vector<WorldDelta>& history() const noexcept { return history_; }
 
     Result<EntityId> create_entity(EntityCreateInfo info);
@@ -71,6 +73,8 @@ public:
         std::optional<ZoneId> weather_zone = std::nullopt,
         std::optional<WorldAnchorOverride> anchor_override = std::nullopt);
 
+    Result<void> set_player_life_state(PlayerLifeState state);
+
     Result<TransactionReceipt> execute(const WorldTransaction& transaction);
     [[nodiscard]] WorldSnapshot snapshot() const;
     [[nodiscard]] static Result<VersionedWorld> from_snapshot(const WorldSnapshot& snapshot);
@@ -88,6 +92,7 @@ private:
     WeatherLedger weather_{};
     WorldAffectState affect_{};
     WorldAnchorState anchor_{};
+    PlayerLifeLedger player_life_{};
     WorldRevision revision_{};
     std::vector<WorldDelta> history_{};
 };

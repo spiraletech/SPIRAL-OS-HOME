@@ -1,6 +1,7 @@
 #pragma once
 
 #include "home/entity.hpp"
+#include "home/player_life.hpp"
 #include "home/revision.hpp"
 #include "home/topology.hpp"
 #include "home/weather.hpp"
@@ -27,7 +28,8 @@ enum class WorldChangeKind : std::uint8_t {
     ClimateProfileChanged,
     WeatherStateChanged,
     WorldAffectChanged,
-    WorldAnchorChanged
+    WorldAnchorChanged,
+    PlayerLifeStateChanged
 };
 
 struct EntityCreated final { EntityRecord entity{}; };
@@ -62,11 +64,16 @@ struct WorldAnchorChanged final {
     WorldAnchorState before{};
     WorldAnchorState after{};
 };
+struct PlayerLifeStateChanged final {
+    std::optional<PlayerLifeState> before{};
+    std::optional<PlayerLifeState> after{};
+};
 
 using WorldChangePayload = std::variant<
     EntityCreated, EntityRemoved, EntityTransformUpdated, ZoneCreated,
     ZoneParentChanged, ZonesConnected, EntityZoneChanged, WorldTimeAdvanced,
-    ClimateProfileChanged, WeatherStateChanged, WorldAffectChanged, WorldAnchorChanged
+    ClimateProfileChanged, WeatherStateChanged, WorldAffectChanged, WorldAnchorChanged,
+    PlayerLifeStateChanged
 >;
 
 struct WorldChange final {
