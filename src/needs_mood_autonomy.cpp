@@ -4,7 +4,6 @@
 #include <utility>
 
 namespace home {
-
 namespace {
 
 bool valid_need_levels(const NeedLevels& needs) noexcept {
@@ -14,42 +13,136 @@ bool valid_need_levels(const NeedLevels& needs) noexcept {
 }
 
 bool valid_mood(const MoodState& mood) noexcept {
-    return mood.valence >= kMoodValenceMinimum && mood.valence <= kMoodValenceMaximum &&
-           mood.arousal >= kMoodArousalMinimum && mood.arousal <= kMoodArousalMaximum;
+    return mood.valence >= kMoodValenceMinimum && mood.valence <= kMoodValenceMaximum
+        && mood.arousal >= kMoodArousalMinimum && mood.arousal <= kMoodArousalMaximum
+        && static_cast<unsigned>(mood.band) <= static_cast<unsigned>(MoodBand::Elevated)
+        && mood.band == derive_mood_band(mood.valence);
 }
 
 bool valid_autonomy(const AutonomyPolicy& autonomy) noexcept {
+    if (static_cast<unsigned>(autonomy.mode) > static_cast<unsigned>(AutonomyMode::Bounded)) return false;
     if (autonomy.mode == AutonomyMode::Disabled) {
-        return autonomy.initiative_limit_per_hour == 0 &&
-               !autonomy.may_change_zone &&
-               !autonomy.may_interact_with_entities;
+        return autonomy.initiative_limit_per_hour == 0
+            && !autonomy.may_change_zone
+            && !autonomy.may_interact_with_entities;
     }
-    return autonomy.initiative_limit_per_hour > 0;
+    return autonomy.initiative_limit_per_hour > 0
+        && autonomy.initiative_limit_per_hour <= kAutonomyInitiativeMaximumPerHour;
+}
+
+AutonomyIntent intent_for_need(NeedKind kind) noexcept {
+    switch (kind) {
+    case NeedKind::Energy: return AutonomyIntent::Rest;
+    case NeedKind::Hunger: return AutonomyIntent::Eat;
+    case NeedKind::Hygiene: return AutonomyIntent::Clean;
+    case NeedKind::Social: return AutonomyIntent::Socialize;
+    case NeedKind::Fun: return AutonomyIntent::Play;
+    case NeedKind::Safety: return AutonomyIntent::SeekSafety;
+    case NeedKind::Count: break;
+    }
+    return AutonomyIntent::None;
+}
+
+AutonomyDecision resolve_unchecked(const PlayerDynamicsState& state) {
+    NeedKind governing = NeedKind::Energy;
+    std::int32_t minimum = state.needs.get(governing);
+    for (std::size_t i = 1; i < static_cast<std::size_t>(NeedKind::Count); ++i) {
+        const auto kind = static_cast<NeedKind>(i);
+        const std::int32_t value = state.needs.get(kind);
+        if (value < minimum) {
+            minimum = value;
+            governing = kind;
+        }
+    }
+
+    AutonomyDecision decision{};
+    decision.entity = state.entity;
+    decision.governing_need = governing;
+    decision.urgency = kNeedMaximum - minimum;
+    decision.may_change_zone = state.autonomy.may_change_zone;
+    decision.may_interact_with_entities = state.autonomy.may_interact_with_entities;
+
+    if (state.autonomy.mode == AutonomyMode::Disabled || minimum >= kAutonomyNeedThreshold) {
+        return decision;
+    }
+
+    decision.intent = intent_for_need(governing);
+    decision.initiative_allowed = state.autonomy.mode == AutonomyMode::Bounded;
+    decision.drive = std::string(drive_key(governing));
+    return decision;
 }
 
 } // namespace
 
-Result<void> PlayerDynamicsLedger::set(
-    const EntityRegistry& entities,
-    const PlayerLifeLedger& life,
-    PlayerDynamicsState state) {
-    if (!state.entity.valid() || !entities.contains(state.entity)) {
-        return Result<void>::failure(ErrorCode::NotFound, "player dynamics entity does not exist");
+MoodBand derive_mood_band(std::int32_t valence) noexcept {
+    if (valence <= -6'000) return MoodBand::Distressed;
+    if (valence < -1'500) return MoodBand::Low;
+    if (valence <= 1'500) return MoodBand::Neutral;
+    if (valence < 6'000) return MoodBand::Positive;
+    return MoodBand::Elevated;
+}
+
+std::string_view drive_key(NeedKind kind) noexcept {
+    switch (kind) {
+    case NeedKind::Energy: return "rest";
+    case NeedKind::Hunger: return "eat";
+    case NeedKind::Hygiene: return "clean";
+    case NeedKind::Social: return "socialize";
+    case NeedKind::Fun: return "play";
+    case NeedKind::Safety: return "seek_safety";
+    case NeedKind::Count: break;
     }
-    if (life.find(state.entity) == nullptr) {
-        return Result<void>::failure(ErrorCode::ValidationFailed, "player dynamics requires canonical player life state");
+    return {};
+}
+
+Result<void> validate_player_dynamics_shape(const PlayerDynamicsState& state) {
+    if (!state.entity.valid()) {
+        return Result<void>::failure(ErrorCode::ValidationFailed, "player dynamics entity id is invalid");
     }
     if (!valid_need_levels(state.needs)) {
         return Result<void>::failure(ErrorCode::ValidationFailed, "player need value is outside canonical range");
     }
     if (!valid_mood(state.mood)) {
-        return Result<void>::failure(ErrorCode::ValidationFailed, "player mood value is outside canonical range");
+        return Result<void>::failure(ErrorCode::ValidationFailed, "player mood is invalid or its band contradicts valence");
     }
     if (!valid_autonomy(state.autonomy)) {
         return Result<void>::failure(ErrorCode::ValidationFailed, "player autonomy policy is internally inconsistent");
     }
     if (state.sequence == 0) {
         return Result<void>::failure(ErrorCode::ValidationFailed, "player dynamics sequence must be nonzero");
+    }
+
+    const auto decision = resolve_unchecked(state);
+    if (state.active_drive != decision.drive) {
+        return Result<void>::failure(ErrorCode::ValidationFailed, "player active drive contradicts deterministic autonomy resolution");
+    }
+    return Result<void>::success();
+}
+
+Result<AutonomyDecision> resolve_autonomy_decision(const PlayerDynamicsState& state) {
+    const auto valid = validate_player_dynamics_shape(state);
+    if (!valid) return Result<AutonomyDecision>::failure(valid.error().code, valid.error().message);
+    return Result<AutonomyDecision>::success(resolve_unchecked(state));
+}
+
+Result<void> PlayerDynamicsLedger::set(
+    const EntityRegistry& entities,
+    const PlayerLifeLedger& life,
+    PlayerDynamicsState state) {
+    if (!entities.contains(state.entity)) {
+        return Result<void>::failure(ErrorCode::NotFound, "player dynamics entity does not exist");
+    }
+    const PlayerLifeState* life_state = life.find(state.entity);
+    if (life_state == nullptr) {
+        return Result<void>::failure(ErrorCode::ValidationFailed, "player dynamics requires canonical player life state");
+    }
+    const auto valid = validate_player_dynamics_shape(state);
+    if (!valid) return valid;
+    if (state.updated_world_minute < life_state->born_world_minute) {
+        return Result<void>::failure(ErrorCode::ValidationFailed, "player dynamics update precedes player birth minute");
+    }
+    if (life_state->presence == LifePresence::Deceased && state.autonomy.mode != AutonomyMode::Disabled) {
+        return Result<void>::failure(ErrorCode::ValidationFailed, "deceased player life cannot retain active autonomy");
     }
 
     const auto it = std::lower_bound(states_.begin(), states_.end(), state.entity,
@@ -68,6 +161,17 @@ Result<void> PlayerDynamicsLedger::set(
 
     states_.insert(it, std::move(state));
     return Result<void>::success();
+}
+
+Result<PlayerDynamicsState> PlayerDynamicsLedger::remove(EntityId entity) {
+    const auto it = std::lower_bound(states_.begin(), states_.end(), entity,
+        [](const PlayerDynamicsState& candidate, EntityId value) { return candidate.entity < value; });
+    if (it == states_.end() || it->entity != entity) {
+        return Result<PlayerDynamicsState>::failure(ErrorCode::NotFound, "player dynamics state not found");
+    }
+    PlayerDynamicsState removed = *it;
+    states_.erase(it);
+    return Result<PlayerDynamicsState>::success(std::move(removed));
 }
 
 const PlayerDynamicsState* PlayerDynamicsLedger::find(EntityId entity) const noexcept {
