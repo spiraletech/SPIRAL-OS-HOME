@@ -18,6 +18,7 @@ WorldSnapshot VersionedWorld::snapshot() const {
     out.weather = weather_.snapshot();
     out.affect = affect_;
     out.anchor = anchor_;
+    out.player_life = player_life_.snapshot();
     out.entities = registry_.snapshot();
     out.zones = topology_.snapshot_zones();
     out.connections = topology_.snapshot_connections();
@@ -97,6 +98,18 @@ Result<VersionedWorld> VersionedWorld::from_snapshot(const WorldSnapshot& input)
     for (const auto& placement : input.placements) {
         if (!restored.registry_.contains(placement.entity)) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot placement references a missing entity");
         const auto result = restored.topology_.place_entity(placement.entity, placement.zone);
+        if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
+    }
+
+    const std::uint64_t current_world_minute = input.world_time.milliseconds / 60000ULL;
+    for (const auto& life : input.player_life) {
+        if (life.born_world_minute > current_world_minute || life.updated_world_minute > current_world_minute) {
+            return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot player life references a future HOME minute");
+        }
+        if (restored.player_life_.find(life.entity)) {
+            return Result<VersionedWorld>::failure(ErrorCode::AlreadyExists, "snapshot contains duplicate player life entity");
+        }
+        const auto result = restored.player_life_.set(restored.registry_, restored.topology_, life);
         if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
     }
 
