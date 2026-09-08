@@ -38,12 +38,24 @@ Result<EntityRecord> VersionedWorld::remove_entity(EntityId id) {
     if (const auto* life = player_life_.find(id)) prior_life = *life;
     if (const auto* dynamics = player_dynamics_.find(id)) prior_dynamics = *dynamics;
 
+    RelationshipsLedger staged_relationships = relationships_;
+    const std::uint64_t current_world_minute = clock_.now().milliseconds / 60000ULL;
+    const auto social_purge = staged_relationships.purge_entity(id, current_world_minute);
+    if (!social_purge) return Result<EntityRecord>::failure(social_purge.error().code, social_purge.error().message);
+
     const auto removed = registry_.remove(id); if (!removed) return removed;
     EntityRecord record = removed.value(); std::vector<WorldChange> changes;
     if (prior) {
         const auto cleared = topology_.clear_entity(id);
         if (!cleared) { registry_.restore(record); return Result<EntityRecord>::failure(cleared.error().code, cleared.error().message); }
         changes.push_back({WorldChangeKind::EntityZoneChanged, EntityZoneChanged{id, prior, std::nullopt}});
+    }
+    for (const auto& relationship : social_purge.value().removed_relationships) {
+        changes.push_back({WorldChangeKind::RelationshipStateChanged, RelationshipStateChanged{relationship, std::nullopt}});
+    }
+    if (social_purge.value().household_before.has_value()) {
+        changes.push_back({WorldChangeKind::HouseholdStateChanged, HouseholdStateChanged{
+            social_purge.value().household_before, social_purge.value().household_after}});
     }
     if (prior_dynamics.has_value()) {
         const auto dynamics_removed = player_dynamics_.remove(id);
@@ -73,6 +85,7 @@ Result<EntityRecord> VersionedWorld::remove_entity(EntityId id) {
         if (prior_dynamics) player_dynamics_.set(registry_, player_life_, *prior_dynamics);
         return Result<EntityRecord>::failure(c.error().code,c.error().message);
     }
+    relationships_ = std::move(staged_relationships);
     return Result<EntityRecord>::success(std::move(record));
 }
 
@@ -82,6 +95,8 @@ Result<void> VersionedWorld::update_transform(EntityId id, Transform transform) 
     const Transform before=r->transform; r->transform=transform; const auto c=commit({{WorldChangeKind::EntityTransformUpdated,EntityTransformUpdated{id,before,transform}}});
     if(!c){r->transform=before;return c;} return Result<void>::success();
 }
+
+Result<ZoneId> VersionedWorld::create_zone(EntityCreateInfo);
 
 Result<ZoneId> VersionedWorld::create_zone(ZoneCreateInfo info) {
     const auto z=topology_.create_zone(std::move(info)); if(!z)return z; const auto* r=topology_.find(z.value());
@@ -104,7 +119,9 @@ Result<TransactionReceipt> VersionedWorld::execute(const WorldTransaction& tx) {
     TopologyRegistry staged_topology = topology_;
     PlayerLifeLedger staged_life = player_life_;
     PlayerDynamicsLedger staged_dynamics = player_dynamics_;
+    RelationshipsLedger staged_relationships = relationships_;
     std::vector<WorldChange> changes; TransactionReceipt receipt{tx.id, revision_, revision_, {}, {}};
+    const std::uint64_t current_world_minute = clock_.now().milliseconds / 60000ULL;
 
     for (const auto& op : tx.operations) {
         Result<void> status = Result<void>::success();
@@ -118,8 +135,12 @@ Result<TransactionReceipt> VersionedWorld::execute(const WorldTransaction& tx) {
                 std::optional<PlayerDynamicsState> prior_dynamics{};
                 if (const auto* life = staged_life.find(command.id)) prior_life = *life;
                 if (const auto* dynamics = staged_dynamics.find(command.id)) prior_dynamics = *dynamics;
+                const auto social = staged_relationships.purge_entity(command.id, current_world_minute);
+                if(!social){status=Result<void>::failure(social.error().code,social.error().message);return;}
                 auto r=staged_registry.remove(command.id); if(!r){status=Result<void>::failure(r.error().code,r.error().message);return;}
                 if(prior){staged_topology.clear_entity(command.id);changes.push_back({WorldChangeKind::EntityZoneChanged,EntityZoneChanged{command.id,prior,std::nullopt}});}
+                for(const auto& relationship:social.value().removed_relationships)changes.push_back({WorldChangeKind::RelationshipStateChanged,RelationshipStateChanged{relationship,std::nullopt}});
+                if(social.value().household_before)changes.push_back({WorldChangeKind::HouseholdStateChanged,HouseholdStateChanged{social.value().household_before,social.value().household_after}});
                 if(prior_dynamics){const auto removed_dynamics=staged_dynamics.remove(command.id);if(!removed_dynamics){status=Result<void>::failure(removed_dynamics.error().code,removed_dynamics.error().message);return;}changes.push_back({WorldChangeKind::PlayerDynamicsStateChanged,PlayerDynamicsStateChanged{prior_dynamics,std::nullopt}});}
                 if(prior_life){const auto removed_life=staged_life.remove(command.id);if(!removed_life){status=Result<void>::failure(removed_life.error().code,removed_life.error().message);return;}changes.push_back({WorldChangeKind::PlayerLifeStateChanged,PlayerLifeStateChanged{prior_life,std::nullopt}});}
                 changes.push_back({WorldChangeKind::EntityRemoved,EntityRemoved{r.value()}});
@@ -139,7 +160,7 @@ Result<TransactionReceipt> VersionedWorld::execute(const WorldTransaction& tx) {
     }
 
     const auto next=revision_.next(); if(!next) return Result<TransactionReceipt>::failure(ErrorCode::Overflow,"world revision space exhausted");
-    registry_=std::move(staged_registry); topology_=std::move(staged_topology); player_life_=std::move(staged_life); player_dynamics_=std::move(staged_dynamics); const WorldRevision from=revision_; revision_=*next; history_.emplace_back(from,revision_,std::move(changes)); receipt.to_revision=revision_;
+    registry_=std::move(staged_registry); topology_=std::move(staged_topology); player_life_=std::move(staged_life); player_dynamics_=std::move(staged_dynamics); relationships_=std::move(staged_relationships); const WorldRevision from=revision_; revision_=*next; history_.emplace_back(from,revision_,std::move(changes)); receipt.to_revision=revision_;
     return Result<TransactionReceipt>::success(std::move(receipt));
 }
 
