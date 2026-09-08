@@ -4,6 +4,7 @@
 #include "home/revision.hpp"
 #include "home/topology.hpp"
 #include "home/weather.hpp"
+#include "home/world_affect.hpp"
 #include "home/world_clock.hpp"
 
 #include <cstdint>
@@ -24,7 +25,9 @@ enum class WorldChangeKind : std::uint8_t {
     EntityZoneChanged,
     WorldTimeAdvanced,
     ClimateProfileChanged,
-    WeatherStateChanged
+    WeatherStateChanged,
+    WorldAffectChanged,
+    WorldAnchorChanged
 };
 
 struct EntityCreated final { EntityRecord entity{}; };
@@ -51,11 +54,19 @@ struct WeatherStateChanged final {
     Season season{Season::Winter};
     std::uint64_t entropy{};
 };
+struct WorldAffectChanged final {
+    WorldAffectState before{};
+    WorldAffectState after{};
+};
+struct WorldAnchorChanged final {
+    WorldAnchorState before{};
+    WorldAnchorState after{};
+};
 
 using WorldChangePayload = std::variant<
     EntityCreated, EntityRemoved, EntityTransformUpdated, ZoneCreated,
     ZoneParentChanged, ZonesConnected, EntityZoneChanged, WorldTimeAdvanced,
-    ClimateProfileChanged, WeatherStateChanged
+    ClimateProfileChanged, WeatherStateChanged, WorldAffectChanged, WorldAnchorChanged
 >;
 
 struct WorldChange final {
