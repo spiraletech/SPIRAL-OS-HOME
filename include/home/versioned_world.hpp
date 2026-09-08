@@ -69,7 +69,6 @@ public:
     Result<WeatherState> evolve_zone_weather(ZoneId zone, std::uint64_t entropy);
     Result<WorldContextState> refresh_world_context(
         std::optional<ZoneId> weather_zone = std::nullopt,
-        EventSelector selector = {},
         std::optional<WorldAnchorOverride> anchor_override = std::nullopt);
 
     Result<TransactionReceipt> execute(const WorldTransaction& transaction);
