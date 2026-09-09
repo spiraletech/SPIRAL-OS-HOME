@@ -1,6 +1,5 @@
 #include "home/versioned_world.hpp"
 
-#include <algorithm>
 #include <optional>
 
 namespace home {
@@ -72,12 +71,8 @@ Result<void> VersionedWorld::set_subclass_affinity(SubclassAffinityState state) 
     if (current_aura == nullptr || !aura_semantics_equal(*current_aura, resolution.value())) {
         std::optional<AuraState> aura_before{};
         if (current_aura != nullptr) aura_before = *current_aura;
-        std::uint64_t aura_minute = state.updated_world_minute;
-        if (const auto* dynamics = player_dynamics_.find(state.player)) {
-            aura_minute = std::max(aura_minute, dynamics->updated_world_minute);
-        }
         AuraState aura = aura_from_resolution(
-            resolution.value(), aura_minute, current_aura == nullptr ? 1 : current_aura->sequence + 1);
+            resolution.value(), now, current_aura == nullptr ? 1 : current_aura->sequence + 1);
         const auto set_aura = staged.set_aura(registry_, player_life_, aura);
         if (!set_aura) return set_aura;
         changes.push_back({
