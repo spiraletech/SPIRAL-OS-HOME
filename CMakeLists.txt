@@ -9,7 +9,7 @@ add_library(home_core
  src/entity_registry.cpp
  src/topology.cpp
  src/versioned_world.cpp
- src/snapshot.cpp
+ src/snapshot_v12.cpp
  src/persistence.cpp
  src/world_clock.cpp
  src/versioned_world_clock.cpp
