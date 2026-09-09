@@ -22,6 +22,7 @@ WorldSnapshot VersionedWorld::snapshot() const {
     out.player_dynamics = player_dynamics_.snapshot();
     out.relationships = relationships_.relationship_snapshot();
     out.households = relationships_.household_snapshot();
+    out.items = inventory_.snapshot();
     out.entities = registry_.snapshot();
     out.zones = topology_.snapshot_zones();
     out.connections = topology_.snapshot_connections();
@@ -118,6 +119,11 @@ Result<VersionedWorld> VersionedWorld::from_snapshot(const WorldSnapshot& input)
     for (const auto& household : input.households) {
         if (household.updated_world_minute > current_world_minute) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot household references a future HOME minute");
         const auto result = restored.relationships_.restore_household(restored.registry_, restored.topology_, restored.player_life_, household);
+        if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
+    }
+    for (const auto& item : input.items) {
+        if (item.updated_world_minute > current_world_minute) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot item references a future HOME minute");
+        const auto result = restored.inventory_.restore_item(restored.registry_, restored.topology_, restored.player_life_, item);
         if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
     }
 
