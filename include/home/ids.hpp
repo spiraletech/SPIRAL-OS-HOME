@@ -34,6 +34,7 @@ struct TimeDomainIdTag;
 struct PlayerIdTag;
 struct HouseholdIdTag;
 struct ItemIdTag;
+struct TaskIdTag;
 struct QuestIdTag;
 struct EventIdTag;
 
@@ -45,6 +46,7 @@ using TimeDomainId = StrongId<TimeDomainIdTag>;
 using PlayerId = StrongId<PlayerIdTag>;
 using HouseholdId = StrongId<HouseholdIdTag>;
 using ItemId = StrongId<ItemIdTag>;
+using TaskId = StrongId<TaskIdTag>;
 using QuestId = StrongId<QuestIdTag>;
 using EventId = StrongId<EventIdTag>;
 
