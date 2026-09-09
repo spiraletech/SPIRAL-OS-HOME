@@ -42,6 +42,7 @@ Result<void> VersionedWorld::set_task_state(TaskState state) {
     const auto set = staged.set_task(registry_, player_life_, state);
     if (!set) return set;
     const TaskState* after = staged.find_task(state.id);
+    if (!after) return Result<void>::failure(ErrorCode::InternalError, "task missing after update");
     const auto committed = commit({WorldChange{WorldChangeKind::TaskStateChanged, TaskStateChanged{before, *after}}});
     if (!committed) return committed;
     progression_ = std::move(staged);
@@ -65,6 +66,11 @@ Result<QuestId> VersionedWorld::create_quest(QuestCreateInfo info) {
 Result<void> VersionedWorld::set_quest_state(QuestState state) {
     const std::uint64_t now = clock_.now().milliseconds / 60000ULL;
     if (state.updated_world_minute > now) return Result<void>::failure(ErrorCode::ValidationFailed, "quest references a future HOME minute");
+    for (const QuestId prerequisite : state.prerequisites) {
+        if (prerequisite.value() >= state.id.value()) {
+            return Result<void>::failure(ErrorCode::ValidationFailed, "quest prerequisite must reference an earlier stable quest id");
+        }
+    }
     const QuestState* current = progression_.find_quest(state.id);
     if (!current) return Result<void>::failure(ErrorCode::NotFound, "quest not found");
     const QuestState before = *current;
@@ -72,6 +78,7 @@ Result<void> VersionedWorld::set_quest_state(QuestState state) {
     const auto set = staged.set_quest(registry_, player_life_, state);
     if (!set) return set;
     const QuestState* after = staged.find_quest(state.id);
+    if (!after) return Result<void>::failure(ErrorCode::InternalError, "quest missing after update");
     const auto committed = commit({WorldChange{WorldChangeKind::QuestStateChanged, QuestStateChanged{before, *after}}});
     if (!committed) return committed;
     progression_ = std::move(staged);
