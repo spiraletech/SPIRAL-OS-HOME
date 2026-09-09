@@ -7,6 +7,7 @@
 #include "home/progression.hpp"
 #include "home/relationships.hpp"
 #include "home/revision.hpp"
+#include "home/theorism.hpp"
 #include "home/topology.hpp"
 #include "home/weather.hpp"
 #include "home/world_affect.hpp"
@@ -40,7 +41,9 @@ enum class WorldChangeKind : std::uint8_t {
     ItemStateChanged,
     SkillStateChanged,
     TaskStateChanged,
-    QuestStateChanged
+    QuestStateChanged,
+    SubclassAffinityStateChanged,
+    AuraStateChanged
 };
 
 struct EntityCreated final { EntityRecord entity{}; };
@@ -63,13 +66,16 @@ struct ItemStateChanged final { std::optional<ItemState> before{}; std::optional
 struct SkillStateChanged final { std::optional<SkillState> before{}; std::optional<SkillState> after{}; };
 struct TaskStateChanged final { std::optional<TaskState> before{}; std::optional<TaskState> after{}; };
 struct QuestStateChanged final { std::optional<QuestState> before{}; std::optional<QuestState> after{}; };
+struct SubclassAffinityStateChanged final { std::optional<SubclassAffinityState> before{}; std::optional<SubclassAffinityState> after{}; };
+struct AuraStateChanged final { std::optional<AuraState> before{}; std::optional<AuraState> after{}; };
 
 using WorldChangePayload = std::variant<
     EntityCreated, EntityRemoved, EntityTransformUpdated, ZoneCreated,
     ZoneParentChanged, ZonesConnected, EntityZoneChanged, WorldTimeAdvanced,
     ClimateProfileChanged, WeatherStateChanged, WorldAffectChanged, WorldAnchorChanged,
     PlayerLifeStateChanged, PlayerDynamicsStateChanged, RelationshipStateChanged,
-    HouseholdStateChanged, ItemStateChanged, SkillStateChanged, TaskStateChanged, QuestStateChanged
+    HouseholdStateChanged, ItemStateChanged, SkillStateChanged, TaskStateChanged,
+    QuestStateChanged, SubclassAffinityStateChanged, AuraStateChanged
 >;
 
 struct WorldChange final {
