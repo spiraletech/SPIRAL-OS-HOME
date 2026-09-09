@@ -1,6 +1,7 @@
 #pragma once
 
 #include "home/entity.hpp"
+#include "home/inventory.hpp"
 #include "home/needs_mood_autonomy.hpp"
 #include "home/player_life.hpp"
 #include "home/relationships.hpp"
@@ -34,7 +35,8 @@ enum class WorldChangeKind : std::uint8_t {
     PlayerLifeStateChanged,
     PlayerDynamicsStateChanged,
     RelationshipStateChanged,
-    HouseholdStateChanged
+    HouseholdStateChanged,
+    ItemStateChanged
 };
 
 struct EntityCreated final { EntityRecord entity{}; };
@@ -53,12 +55,14 @@ struct PlayerLifeStateChanged final { std::optional<PlayerLifeState> before{}; s
 struct PlayerDynamicsStateChanged final { std::optional<PlayerDynamicsState> before{}; std::optional<PlayerDynamicsState> after{}; };
 struct RelationshipStateChanged final { std::optional<RelationshipState> before{}; std::optional<RelationshipState> after{}; };
 struct HouseholdStateChanged final { std::optional<HouseholdState> before{}; std::optional<HouseholdState> after{}; };
+struct ItemStateChanged final { std::optional<ItemState> before{}; std::optional<ItemState> after{}; };
 
 using WorldChangePayload = std::variant<
     EntityCreated, EntityRemoved, EntityTransformUpdated, ZoneCreated,
     ZoneParentChanged, ZonesConnected, EntityZoneChanged, WorldTimeAdvanced,
     ClimateProfileChanged, WeatherStateChanged, WorldAffectChanged, WorldAnchorChanged,
-    PlayerLifeStateChanged, PlayerDynamicsStateChanged, RelationshipStateChanged, HouseholdStateChanged
+    PlayerLifeStateChanged, PlayerDynamicsStateChanged, RelationshipStateChanged,
+    HouseholdStateChanged, ItemStateChanged
 >;
 
 struct WorldChange final {
