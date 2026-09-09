@@ -1,6 +1,7 @@
 #include "home/versioned_world.hpp"
 
 #include <cassert>
+#include <limits>
 #include <string>
 
 int main() {
@@ -95,7 +96,6 @@ int main() {
     assert(restored.value().inventory().find(item.value()) != nullptr);
     assert(restored.value().inventory().find(item.value())->owner == b.value());
 
-    // v9 compatibility: remove the v10 ITEMS section and downgrade only the header.
     std::string legacy = encoded.value();
     const auto items_start = legacy.find("ITEMS ");
     const auto entities_start = legacy.find("ENTITIES ", items_start);
@@ -106,7 +106,6 @@ int main() {
     assert(legacy_decoded.ok());
     assert(legacy_decoded.value().items.empty());
 
-    // Direct owner deletion preserves the item but detaches ownership atomically.
     const WorldRevision before_delete = world.revision();
     assert(world.remove_entity(b.value()).ok());
     const auto* detached = world.inventory().find(item.value());
@@ -114,7 +113,6 @@ int main() {
     assert(detached->sequence == 5);
     assert(world.revision() == before_delete.next().value());
 
-    // Transactional owner deletion obeys the same invariant.
     ItemCreateInfo tx_info{};
     tx_info.archetype_key = "keycard";
     tx_info.display_name = "Keycard";
@@ -132,7 +130,6 @@ int main() {
     const auto* tx_detached = world.inventory().find(tx_item.value());
     assert(tx_detached != nullptr && !tx_detached->owner.has_value());
 
-    // Restored item allocator advances beyond persisted IDs.
     VersionedWorld restored_world = std::move(restored.value());
     ItemCreateInfo after_restore{};
     after_restore.archetype_key = "battery";
@@ -144,6 +141,28 @@ int main() {
     const auto next_item = restored_world.create_item(after_restore);
     assert(next_item.ok());
     assert(next_item.value().value() > item.value().value());
+
+    // Restoring UINT64_MAX exhausts the allocator instead of wrapping to ID 1.
+    WorldSnapshot max_id_snapshot = snap;
+    max_id_snapshot.items.clear();
+    ItemState max_item{};
+    max_item.id = ItemId{std::numeric_limits<std::uint64_t>::max()};
+    max_item.archetype_key = "final_item";
+    max_item.display_name = "Final Item";
+    max_item.kind = ItemKind::Generic;
+    max_item.quantity = 1;
+    max_item.max_stack = 1;
+    max_item.durability = kItemDurabilityMaximum;
+    max_item.updated_world_minute = 1;
+    max_item.sequence = 1;
+    max_id_snapshot.items.push_back(max_item);
+    const auto max_restored = VersionedWorld::from_snapshot(max_id_snapshot);
+    assert(max_restored.ok());
+    VersionedWorld exhausted_world = max_restored.value();
+    const auto exhausted_create = exhausted_world.create_item(after_restore);
+    assert(!exhausted_create.ok());
+    assert(exhausted_create.error().code == ErrorCode::Overflow);
+    assert(exhausted_world.inventory().find(max_item.id) != nullptr);
 
     return 0;
 }
