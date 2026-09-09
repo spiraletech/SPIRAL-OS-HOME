@@ -3,6 +3,7 @@
 #include "home/calendar.hpp"
 #include "home/entity.hpp"
 #include "home/events.hpp"
+#include "home/inventory.hpp"
 #include "home/needs_mood_autonomy.hpp"
 #include "home/player_life.hpp"
 #include "home/relationships.hpp"
@@ -43,13 +44,14 @@ struct WorldSnapshot final {
     std::vector<PlayerDynamicsState> player_dynamics{};
     std::vector<RelationshipState> relationships{};
     std::vector<HouseholdState> households{};
+    std::vector<ItemState> items{};
     std::vector<EntityRecord> entities{};
     std::vector<ZoneRecord> zones{};
     std::vector<ZoneConnection> connections{};
     std::vector<SnapshotPlacement> placements{};
 };
 
-inline constexpr std::uint32_t kSnapshotFormatVersion = 9;
+inline constexpr std::uint32_t kSnapshotFormatVersion = 10;
 
 Result<std::string> encode_snapshot(const WorldSnapshot& snapshot);
 Result<WorldSnapshot> decode_snapshot(std::string_view encoded);
