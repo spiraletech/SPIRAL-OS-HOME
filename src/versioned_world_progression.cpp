@@ -52,6 +52,12 @@ Result<void> VersionedWorld::set_task_state(TaskState state) {
 Result<QuestId> VersionedWorld::create_quest(QuestCreateInfo info) {
     const std::uint64_t now = clock_.now().milliseconds / 60000ULL;
     if (info.updated_world_minute > now) return Result<QuestId>::failure(ErrorCode::ValidationFailed, "quest references a future HOME minute");
+    for (const QuestId prerequisite : info.prerequisites) {
+        const QuestState* prior = progression_.find_quest(prerequisite);
+        if (!prior || prior->owner != info.owner) {
+            return Result<QuestId>::failure(ErrorCode::ValidationFailed, "quest prerequisite must exist and belong to the same player");
+        }
+    }
     ProgressionLedger staged = progression_;
     const auto created = staged.create_quest(registry_, player_life_, std::move(info));
     if (!created) return created;
@@ -67,6 +73,10 @@ Result<void> VersionedWorld::set_quest_state(QuestState state) {
     const std::uint64_t now = clock_.now().milliseconds / 60000ULL;
     if (state.updated_world_minute > now) return Result<void>::failure(ErrorCode::ValidationFailed, "quest references a future HOME minute");
     for (const QuestId prerequisite : state.prerequisites) {
+        const QuestState* prior = progression_.find_quest(prerequisite);
+        if (!prior || prior->owner != state.owner) {
+            return Result<void>::failure(ErrorCode::ValidationFailed, "quest prerequisite must exist and belong to the same player");
+        }
         if (prerequisite.value() >= state.id.value()) {
             return Result<void>::failure(ErrorCode::ValidationFailed, "quest prerequisite must reference an earlier stable quest id");
         }
