@@ -3,6 +3,7 @@
 #include "home/calendar.hpp"
 #include "home/entity_registry.hpp"
 #include "home/events.hpp"
+#include "home/inventory.hpp"
 #include "home/needs_mood_autonomy.hpp"
 #include "home/player_life.hpp"
 #include "home/relationships.hpp"
@@ -45,6 +46,7 @@ public:
     [[nodiscard]] const PlayerLifeLedger& player_life() const noexcept { return player_life_; }
     [[nodiscard]] const PlayerDynamicsLedger& player_dynamics() const noexcept { return player_dynamics_; }
     [[nodiscard]] const RelationshipsLedger& relationships() const noexcept { return relationships_; }
+    [[nodiscard]] const InventoryLedger& inventory() const noexcept { return inventory_; }
     [[nodiscard]] const std::vector<WorldDelta>& history() const noexcept { return history_; }
 
     Result<EntityId> create_entity(EntityCreateInfo info);
@@ -83,6 +85,10 @@ public:
     Result<void> set_household_state(HouseholdState state);
     Result<void> dissolve_household(HouseholdId id);
 
+    Result<ItemId> create_item(ItemCreateInfo info);
+    Result<void> set_item_state(ItemState state);
+    Result<void> remove_item(ItemId id);
+
     Result<TransactionReceipt> execute(const WorldTransaction& transaction);
     [[nodiscard]] WorldSnapshot snapshot() const;
     [[nodiscard]] static Result<VersionedWorld> from_snapshot(const WorldSnapshot& snapshot);
@@ -103,6 +109,7 @@ private:
     PlayerLifeLedger player_life_{};
     PlayerDynamicsLedger player_dynamics_{};
     RelationshipsLedger relationships_{};
+    InventoryLedger inventory_{};
     WorldRevision revision_{};
     std::vector<WorldDelta> history_{};
 };
