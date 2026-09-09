@@ -4,6 +4,18 @@
 #include <utility>
 
 namespace home {
+namespace {
+
+bool aura_semantics_equal(const AuraState& aura, const HalaluluResolution& resolution) noexcept {
+    return aura.player == resolution.player
+        && aura.dominant_affinity == resolution.dominant_affinity
+        && aura.signature == resolution.signature
+        && aura.intensity_permille == resolution.intensity_permille
+        && aura.charge_milli == resolution.charge_milli
+        && aura.coherence_permille == resolution.coherence_permille;
+}
+
+} // namespace
 
 WorldSnapshot VersionedWorld::snapshot() const {
     WorldSnapshot out{};
@@ -26,6 +38,8 @@ WorldSnapshot VersionedWorld::snapshot() const {
     out.skills = progression_.skill_snapshot();
     out.tasks = progression_.task_snapshot();
     out.quests = progression_.quest_snapshot();
+    out.subclasses = theorism_.subclass_snapshot();
+    out.auras = theorism_.aura_snapshot();
     out.entities = registry_.snapshot();
     out.zones = topology_.snapshot_zones();
     out.connections = topology_.snapshot_connections();
@@ -143,6 +157,36 @@ Result<VersionedWorld> VersionedWorld::from_snapshot(const WorldSnapshot& input)
         if (quest.updated_world_minute > current_world_minute) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot quest references a future HOME minute");
         const auto result = restored.progression_.restore_quest(restored.registry_, restored.player_life_, quest);
         if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
+    }
+
+    for (const auto& subclass : input.subclasses) {
+        const auto* life = restored.player_life_.find(subclass.player);
+        if (!life || subclass.discovered_world_minute < life->born_world_minute
+            || subclass.discovered_world_minute > current_world_minute || subclass.updated_world_minute > current_world_minute) {
+            return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot subclass affinity chronology is invalid");
+        }
+        const auto result = restored.theorism_.restore_subclass(restored.registry_, restored.player_life_, subclass);
+        if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
+    }
+
+    for (const auto& aura : input.auras) {
+        if (aura.updated_world_minute > current_world_minute) {
+            return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot aura references a future HOME minute");
+        }
+        const auto subclasses = restored.theorism_.subclasses_for(aura.player);
+        if (subclasses.empty()) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot aura has no subclass source");
+        const auto resolution = resolve_halalulu(aura.player, subclasses, restored.player_dynamics_.find(aura.player));
+        if (!resolution || !aura_semantics_equal(aura, resolution.value())) {
+            return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot aura does not match HALALULU resolution");
+        }
+        const auto result = restored.theorism_.restore_aura(restored.registry_, restored.player_life_, aura);
+        if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
+    }
+
+    for (const auto& subclass : restored.theorism_.subclass_snapshot()) {
+        if (restored.theorism_.find_aura(subclass.player) == nullptr) {
+            return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot player with subclass affinity is missing aura");
+        }
     }
 
     restored.affect_ = input.affect;

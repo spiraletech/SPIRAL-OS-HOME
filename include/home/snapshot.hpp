@@ -10,6 +10,7 @@
 #include "home/relationships.hpp"
 #include "home/result.hpp"
 #include "home/revision.hpp"
+#include "home/theorism.hpp"
 #include "home/topology.hpp"
 #include "home/weather.hpp"
 #include "home/world_affect.hpp"
@@ -49,13 +50,15 @@ struct WorldSnapshot final {
     std::vector<SkillState> skills{};
     std::vector<TaskState> tasks{};
     std::vector<QuestState> quests{};
+    std::vector<SubclassAffinityState> subclasses{};
+    std::vector<AuraState> auras{};
     std::vector<EntityRecord> entities{};
     std::vector<ZoneRecord> zones{};
     std::vector<ZoneConnection> connections{};
     std::vector<SnapshotPlacement> placements{};
 };
 
-inline constexpr std::uint32_t kSnapshotFormatVersion = 11;
+inline constexpr std::uint32_t kSnapshotFormatVersion = 12;
 
 Result<std::string> encode_snapshot(const WorldSnapshot& snapshot);
 Result<WorldSnapshot> decode_snapshot(std::string_view encoded);

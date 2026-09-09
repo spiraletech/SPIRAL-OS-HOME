@@ -9,7 +9,7 @@ add_library(home_core
  src/entity_registry.cpp
  src/topology.cpp
  src/versioned_world.cpp
- src/snapshot.cpp
+ src/snapshot_v12.cpp
  src/persistence.cpp
  src/world_clock.cpp
  src/versioned_world_clock.cpp
@@ -29,6 +29,8 @@ add_library(home_core
  src/versioned_world_inventory.cpp
  src/progression.cpp
  src/versioned_world_progression.cpp
+ src/theorism.cpp
+ src/versioned_world_theorism.cpp
 )
 add_library(HOME::Core ALIAS home_core)
 target_include_directories(home_core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
@@ -67,4 +69,5 @@ if(HOME_BUILD_TESTS)
  home_add_test(15 l15_relationships_households_tests.cpp home.l15.relationships_households)
  home_add_test(16 l16_items_inventory_tests.cpp home.l16.items_inventory)
  home_add_test(17 l17_skills_tasks_quests_tests.cpp home.l17.skills_tasks_quests)
+ home_add_test(18 l18_subclass_theorism_aura_tests.cpp home.l18.subclass_theorism_aura)
 endif()
