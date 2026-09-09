@@ -23,6 +23,9 @@ WorldSnapshot VersionedWorld::snapshot() const {
     out.relationships = relationships_.relationship_snapshot();
     out.households = relationships_.household_snapshot();
     out.items = inventory_.snapshot();
+    out.skills = progression_.skill_snapshot();
+    out.tasks = progression_.task_snapshot();
+    out.quests = progression_.quest_snapshot();
     out.entities = registry_.snapshot();
     out.zones = topology_.snapshot_zones();
     out.connections = topology_.snapshot_connections();
@@ -124,6 +127,21 @@ Result<VersionedWorld> VersionedWorld::from_snapshot(const WorldSnapshot& input)
     for (const auto& item : input.items) {
         if (item.updated_world_minute > current_world_minute) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot item references a future HOME minute");
         const auto result = restored.inventory_.restore_item(restored.registry_, restored.topology_, restored.player_life_, item);
+        if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
+    }
+    for (const auto& skill : input.skills) {
+        if (skill.updated_world_minute > current_world_minute) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot skill references a future HOME minute");
+        const auto result = restored.progression_.restore_skill(restored.registry_, restored.player_life_, skill);
+        if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
+    }
+    for (const auto& task : input.tasks) {
+        if (task.updated_world_minute > current_world_minute) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot task references a future HOME minute");
+        const auto result = restored.progression_.restore_task(restored.registry_, restored.player_life_, task);
+        if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
+    }
+    for (const auto& quest : input.quests) {
+        if (quest.updated_world_minute > current_world_minute) return Result<VersionedWorld>::failure(ErrorCode::ValidationFailed, "snapshot quest references a future HOME minute");
+        const auto result = restored.progression_.restore_quest(restored.registry_, restored.player_life_, quest);
         if (!result) return Result<VersionedWorld>::failure(result.error().code, result.error().message);
     }
 

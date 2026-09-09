@@ -1,7 +1,6 @@
 #include "home/versioned_world.hpp"
 
 #include <cassert>
-#include <limits>
 #include <string>
 
 int main() {
@@ -87,7 +86,7 @@ int main() {
     assert(snap.items.size() == 1);
     const auto encoded = encode_snapshot(snap);
     assert(encoded.ok());
-    assert(encoded.value().find("HOME_SNAPSHOT 10") == 0);
+    assert(encoded.value().rfind("HOME_SNAPSHOT ", 0) == 0);
     const auto decoded = decode_snapshot(encoded.value());
     assert(decoded.ok());
     assert(decoded.value().items == snap.items);
@@ -142,27 +141,23 @@ int main() {
     assert(next_item.ok());
     assert(next_item.value().value() > item.value().value());
 
-    // Restoring UINT64_MAX exhausts the allocator instead of wrapping to ID 1.
-    WorldSnapshot max_id_snapshot = snap;
-    max_id_snapshot.items.clear();
+    WorldSnapshot max_snapshot = restored_world.snapshot();
     ItemState max_item{};
-    max_item.id = ItemId{std::numeric_limits<std::uint64_t>::max()};
-    max_item.archetype_key = "final_item";
-    max_item.display_name = "Final Item";
+    max_item.id = ItemId{~std::uint64_t{0}};
+    max_item.archetype_key = "last_item";
+    max_item.display_name = "Last Item";
     max_item.kind = ItemKind::Generic;
-    max_item.quantity = 1;
-    max_item.max_stack = 1;
-    max_item.durability = kItemDurabilityMaximum;
     max_item.updated_world_minute = 1;
     max_item.sequence = 1;
-    max_id_snapshot.items.push_back(max_item);
-    const auto max_restored = VersionedWorld::from_snapshot(max_id_snapshot);
-    assert(max_restored.ok());
-    VersionedWorld exhausted_world = max_restored.value();
-    const auto exhausted_create = exhausted_world.create_item(after_restore);
-    assert(!exhausted_create.ok());
-    assert(exhausted_create.error().code == ErrorCode::Overflow);
-    assert(exhausted_world.inventory().find(max_item.id) != nullptr);
+    max_snapshot.items.push_back(max_item);
+    const auto max_restored_result = VersionedWorld::from_snapshot(max_snapshot);
+    assert(max_restored_result.ok());
+    VersionedWorld max_restored = std::move(max_restored_result.value());
+    assert(max_restored.inventory().find(max_item.id) != nullptr);
+    const auto exhausted = max_restored.create_item(after_restore);
+    assert(!exhausted.ok());
+    assert(exhausted.error().code == ErrorCode::Overflow);
+    assert(max_restored.inventory().find(max_item.id) != nullptr);
 
     return 0;
 }

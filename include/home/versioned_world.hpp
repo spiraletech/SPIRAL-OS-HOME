@@ -6,6 +6,7 @@
 #include "home/inventory.hpp"
 #include "home/needs_mood_autonomy.hpp"
 #include "home/player_life.hpp"
+#include "home/progression.hpp"
 #include "home/relationships.hpp"
 #include "home/snapshot.hpp"
 #include "home/temporal_domain.hpp"
@@ -47,6 +48,7 @@ public:
     [[nodiscard]] const PlayerDynamicsLedger& player_dynamics() const noexcept { return player_dynamics_; }
     [[nodiscard]] const RelationshipsLedger& relationships() const noexcept { return relationships_; }
     [[nodiscard]] const InventoryLedger& inventory() const noexcept { return inventory_; }
+    [[nodiscard]] const ProgressionLedger& progression() const noexcept { return progression_; }
     [[nodiscard]] const std::vector<WorldDelta>& history() const noexcept { return history_; }
 
     Result<EntityId> create_entity(EntityCreateInfo info);
@@ -89,6 +91,12 @@ public:
     Result<void> set_item_state(ItemState state);
     Result<void> remove_item(ItemId id);
 
+    Result<void> set_skill_state(SkillState state);
+    Result<TaskId> create_task(TaskCreateInfo info);
+    Result<void> set_task_state(TaskState state);
+    Result<QuestId> create_quest(QuestCreateInfo info);
+    Result<void> set_quest_state(QuestState state);
+
     Result<TransactionReceipt> execute(const WorldTransaction& transaction);
     [[nodiscard]] WorldSnapshot snapshot() const;
     [[nodiscard]] static Result<VersionedWorld> from_snapshot(const WorldSnapshot& snapshot);
@@ -110,6 +118,7 @@ private:
     PlayerDynamicsLedger player_dynamics_{};
     RelationshipsLedger relationships_{};
     InventoryLedger inventory_{};
+    ProgressionLedger progression_{};
     WorldRevision revision_{};
     std::vector<WorldDelta> history_{};
 };

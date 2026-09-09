@@ -6,6 +6,7 @@
 #include "home/inventory.hpp"
 #include "home/needs_mood_autonomy.hpp"
 #include "home/player_life.hpp"
+#include "home/progression.hpp"
 #include "home/relationships.hpp"
 #include "home/result.hpp"
 #include "home/revision.hpp"
@@ -45,13 +46,16 @@ struct WorldSnapshot final {
     std::vector<RelationshipState> relationships{};
     std::vector<HouseholdState> households{};
     std::vector<ItemState> items{};
+    std::vector<SkillState> skills{};
+    std::vector<TaskState> tasks{};
+    std::vector<QuestState> quests{};
     std::vector<EntityRecord> entities{};
     std::vector<ZoneRecord> zones{};
     std::vector<ZoneConnection> connections{};
     std::vector<SnapshotPlacement> placements{};
 };
 
-inline constexpr std::uint32_t kSnapshotFormatVersion = 10;
+inline constexpr std::uint32_t kSnapshotFormatVersion = 11;
 
 Result<std::string> encode_snapshot(const WorldSnapshot& snapshot);
 Result<WorldSnapshot> decode_snapshot(std::string_view encoded);
