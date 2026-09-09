@@ -10,6 +10,7 @@
 #include "home/relationships.hpp"
 #include "home/snapshot.hpp"
 #include "home/temporal_domain.hpp"
+#include "home/theorism.hpp"
 #include "home/topology.hpp"
 #include "home/transaction.hpp"
 #include "home/weather.hpp"
@@ -49,6 +50,7 @@ public:
     [[nodiscard]] const RelationshipsLedger& relationships() const noexcept { return relationships_; }
     [[nodiscard]] const InventoryLedger& inventory() const noexcept { return inventory_; }
     [[nodiscard]] const ProgressionLedger& progression() const noexcept { return progression_; }
+    [[nodiscard]] const TheorismLedger& theorism() const noexcept { return theorism_; }
     [[nodiscard]] const std::vector<WorldDelta>& history() const noexcept { return history_; }
 
     Result<EntityId> create_entity(EntityCreateInfo info);
@@ -97,6 +99,9 @@ public:
     Result<QuestId> create_quest(QuestCreateInfo info);
     Result<void> set_quest_state(QuestState state);
 
+    Result<void> set_subclass_affinity(SubclassAffinityState state);
+    [[nodiscard]] Result<HalaluluResolution> resolve_player_aura(EntityId player) const;
+
     Result<TransactionReceipt> execute(const WorldTransaction& transaction);
     [[nodiscard]] WorldSnapshot snapshot() const;
     [[nodiscard]] static Result<VersionedWorld> from_snapshot(const WorldSnapshot& snapshot);
@@ -119,6 +124,7 @@ private:
     RelationshipsLedger relationships_{};
     InventoryLedger inventory_{};
     ProgressionLedger progression_{};
+    TheorismLedger theorism_{};
     WorldRevision revision_{};
     std::vector<WorldDelta> history_{};
 };
