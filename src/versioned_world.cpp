@@ -104,8 +104,6 @@ Result<void> VersionedWorld::update_transform(EntityId id, Transform transform) 
     if(!c){r->transform=before;return c;} return Result<void>::success();
 }
 
-Result<ZoneId> VersionedWorld::create_zone(EntityCreateInfo) = delete;
-
 Result<ZoneId> VersionedWorld::create_zone(ZoneCreateInfo info) {
     const auto z=topology_.create_zone(std::move(info)); if(!z)return z; const auto* r=topology_.find(z.value());
     if(!r)return Result<ZoneId>::failure(ErrorCode::InternalError,"created zone missing from topology");
