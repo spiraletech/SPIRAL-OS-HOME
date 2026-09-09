@@ -282,7 +282,7 @@ Result<TransactionReceipt> VersionedWorld::execute(const WorldTransaction& tx) {
                     changes.push_back({WorldChangeKind::HouseholdStateChanged, HouseholdStateChanged{social.value().household_before, social.value().household_after}});
                 }
                 for (const auto& item_after : items.value()) {
-                    const auto* item_before = staged_inventory.find(item_after.id);
+                    const auto* item_before = inventory_.find(item_after.id);
                     if (item_before) changes.push_back({WorldChangeKind::ItemStateChanged, ItemStateChanged{*item_before, item_after}});
                 }
                 for (const auto& skill : progression.value().skills) {
