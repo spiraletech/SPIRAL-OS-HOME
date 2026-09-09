@@ -49,7 +49,12 @@ Result<ItemId> InventoryLedger::allocate_item_id() {
 }
 
 void InventoryLedger::advance_allocator_past(ItemId id) noexcept {
-    if (id.value() >= next_item_value_ && id.value() != std::numeric_limits<std::uint64_t>::max()) next_item_value_ = id.value() + 1;
+    if (id.value() < next_item_value_) return;
+    if (id.value() == std::numeric_limits<std::uint64_t>::max()) {
+        next_item_value_ = 0;
+        return;
+    }
+    next_item_value_ = id.value() + 1;
 }
 
 Result<ItemId> InventoryLedger::create_item(const EntityRegistry& entities, const TopologyRegistry& topology,
