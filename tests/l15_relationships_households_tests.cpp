@@ -110,7 +110,6 @@ int main() {
     alice_to_cara.sequence = 1;
     assert(world.set_relationship_state(alice_to_cara).ok());
 
-    // Direct deletion purges both directions involving Bob and removes Bob from the household.
     const auto removed_bob = world.remove_entity(bob.value());
     assert(removed_bob.ok());
     assert(world.relationships().find_relationship(alice.value(), bob.value()) == nullptr);
@@ -123,13 +122,12 @@ int main() {
         world.history().back().changes().begin(), world.history().back().changes().end(),
         [](const WorldChange& change) { return change.kind == WorldChangeKind::HouseholdStateChanged; }));
 
-    // Snapshot v9 preserves directed social state and household allocator state.
     const WorldSnapshot saved = world.snapshot();
     assert(saved.relationships.size() == 1);
     assert(saved.households.size() == 1);
     const auto encoded = encode_snapshot(saved);
     assert(encoded.ok());
-    assert(encoded.value().find("HOME_SNAPSHOT 9") == 0);
+    assert(encoded.value().find("HOME_SNAPSHOT " + std::to_string(kSnapshotFormatVersion)) == 0);
     const auto decoded = decode_snapshot(encoded.value());
     assert(decoded.ok());
     const auto restored_result = VersionedWorld::from_snapshot(decoded.value());
@@ -145,13 +143,11 @@ int main() {
     post_restore.members = {alice.value()};
     post_restore.home_zone = home_zone.value();
     post_restore.updated_world_minute = 10;
-    // Alice is still in the restored household, so dissolve first, then verify allocator advanced.
     assert(restored.dissolve_household(household_id.value()).ok());
     const auto next_household = restored.create_household(post_restore);
     assert(next_household.ok());
     assert(next_household.value().value() > household_id.value().value());
 
-    // Transactional deletion of Cara purges her relationship atomically.
     WorldTransaction tx{};
     tx.id = WorldTransactionId{1515};
     tx.expected_revision = world.revision();
@@ -165,7 +161,6 @@ int main() {
     assert(after_cara->members.size() == 1);
     assert(after_cara->members.front() == alice.value());
 
-    // Orphaned social state cannot be serialized.
     WorldSnapshot orphan = world.snapshot();
     RelationshipState orphan_relationship{};
     orphan_relationship.from = alice.value();
@@ -178,7 +173,6 @@ int main() {
     orphan.relationships.push_back(orphan_relationship);
     assert(!encode_snapshot(orphan).ok());
 
-    // Snapshot v8 remains readable and simply has no L15 social state.
     const std::string legacy_v8 =
         "HOME_SNAPSHOT 8\n"
         "WORLD 99 0\n"
