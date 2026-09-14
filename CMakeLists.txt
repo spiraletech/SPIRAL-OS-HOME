@@ -37,6 +37,7 @@ add_library(home_core
  src/xenon_adapter.cpp
  src/guff_home_cartridge.cpp
  src/mission_bay_world.cpp
+ src/home_v01_vertical_slice.cpp
 )
 add_library(HOME::Core ALIAS home_core)
 target_include_directories(home_core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
@@ -82,4 +83,5 @@ if(HOME_BUILD_TESTS)
  home_add_test(22 l22_xenon_adapter_tests.cpp home.l22.xenon_adapter)
  home_add_test(23 l23_guff_home_cartridge_tests.cpp home.l23.guff_home_cartridge)
  home_add_test(24 l24_mission_bay_world_tests.cpp home.l24.mission_bay_world)
+ home_add_test(25 l25_home_v01_vertical_slice_tests.cpp home.l25.v01_vertical_slice)
 endif()
